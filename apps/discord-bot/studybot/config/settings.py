@@ -1,0 +1,42 @@
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+
+class Settings:
+    """アプリケーション設定（環境変数から読み込み）"""
+
+    def __init__(self):
+        env_path = Path(__file__).parent.parent.parent / ".env"
+        load_dotenv(dotenv_path=env_path)
+
+        # Discord
+        self.DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")
+        self.BOT_OWNER_ID: int | None = int(os.getenv("BOT_OWNER_ID", "0")) or None
+
+        # Database
+        self.DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+        self.DB_POOL_MIN_SIZE: int = int(os.getenv("DB_POOL_MIN_SIZE", "1"))
+        self.DB_POOL_MAX_SIZE: int = int(os.getenv("DB_POOL_MAX_SIZE", "5"))
+        self.DB_COMMAND_TIMEOUT: int = int(os.getenv("DB_COMMAND_TIMEOUT", "30"))
+
+        # OpenAI
+        self.OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+        self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
+        self.AI_DAILY_LIMIT: int = int(os.getenv("AI_DAILY_LIMIT", "10"))
+
+        # Logging
+        self.LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
+    @property
+    def database_url_fixed(self) -> str | None:
+        """PostgreSQL URLの正規化"""
+        if not self.DATABASE_URL:
+            return None
+        if self.DATABASE_URL.startswith("postgres://"):
+            return self.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+        return self.DATABASE_URL
+
+
+settings = Settings()

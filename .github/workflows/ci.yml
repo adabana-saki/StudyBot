@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/discord-bot
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Run Ruff check
+        run: ruff check .
+
+      - name: Run Ruff format check
+        run: ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/discord-bot
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: studybot
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: studybot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests with coverage
+        env:
+          DATABASE_URL: postgresql://studybot:testpass@localhost:5432/studybot_test
+          DISCORD_TOKEN: test_token
+        run: pytest --cov=studybot --cov-report=term-missing -v
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t studybot ./apps/discord-bot

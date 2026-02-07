@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: studybot-postgres
+    environment:
+      POSTGRES_USER: studybot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-studybot_dev}
+      POSTGRES_DB: studybot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studybot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "5432:5432"
+    networks:
+      - studybot-network
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: studybot-bot
+    restart: unless-stopped
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DATABASE_URL: postgresql://studybot:${POSTGRES_PASSWORD:-studybot_dev}@postgres:5432/studybot
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DB_POOL_MIN_SIZE: 1
+      DB_POOL_MAX_SIZE: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - studybot-network
+
+networks:
+  studybot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
