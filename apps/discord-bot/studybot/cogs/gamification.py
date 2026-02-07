@@ -6,7 +6,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from studybot.config.constants import COLORS, XP_REWARDS
+from studybot.config.constants import COIN_REWARDS, COLORS, RAID_DEFAULTS, XP_REWARDS
 from studybot.managers.gamification_manager import GamificationManager
 from studybot.utils.embed_helper import xp_embed
 
@@ -81,6 +81,18 @@ class GamificationCog(commands.Cog):
         result = await self.manager.add_xp(user_id, amount, "ポモドーロ完了")
         await self._send_xp_notification(user_id, channel, result)
 
+        # StudyCoin付与
+        shop_cog = self.bot.get_cog("ShopCog")
+        if shop_cog:
+            await shop_cog.award_coins(
+                user_id, "", COIN_REWARDS["pomodoro_complete"], "ポモドーロ完了"
+            )
+
+        # 実績チェック
+        ach_cog = self.bot.get_cog("AchievementCog")
+        if ach_cog:
+            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+
         # 連続学習チェック
         streak = await self.manager.check_streak(user_id)
         if streak["bonus"]:
@@ -96,20 +108,52 @@ class GamificationCog(commands.Cog):
             if bonus_result.get("leveled_up"):
                 await self._send_levelup(user_id, channel, bonus_result)
 
+            # 連続学習のコインボーナス
+            if shop_cog and streak["streak"] >= 7:
+                coin_key = "streak_bonus_30" if streak["streak"] >= 30 else "streak_bonus_7"
+                await shop_cog.award_coins(user_id, "", COIN_REWARDS[coin_key], "連続学習ボーナス")
+
+            # 連続学習の実績チェック
+            if ach_cog:
+                await ach_cog.check_achievement(user_id, "streak_7", streak["streak"], channel)
+                await ach_cog.check_achievement(user_id, "streak_30", streak["streak"], channel)
+
     async def award_task_xp(
         self, user_id: int, priority: int, channel: discord.abc.Messageable
     ) -> None:
         """タスク完了時のXP付与（他Cogから呼び出し）"""
         reward_key = {1: "task_complete_high", 2: "task_complete_medium", 3: "task_complete_low"}
-        amount = XP_REWARDS.get(reward_key.get(priority, "task_complete_low"), 10)
+        key = reward_key.get(priority, "task_complete_low")
+        amount = XP_REWARDS.get(key, 10)
         result = await self.manager.add_xp(user_id, amount, "タスク完了")
         await self._send_xp_notification(user_id, channel, result)
+
+        # StudyCoin付与
+        shop_cog = self.bot.get_cog("ShopCog")
+        if shop_cog:
+            coin_amount = COIN_REWARDS.get(key, 5)
+            await shop_cog.award_coins(user_id, "", coin_amount, "タスク完了")
+
+        # 実績チェック
+        ach_cog = self.bot.get_cog("AchievementCog")
+        if ach_cog:
+            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
 
     async def award_study_log_xp(self, user_id: int, channel: discord.abc.Messageable) -> None:
         """学習ログ記録時のXP付与"""
         amount = XP_REWARDS["study_log"]
         result = await self.manager.add_xp(user_id, amount, "学習ログ記録")
         await self._send_xp_notification(user_id, channel, result)
+
+        # StudyCoin付与
+        shop_cog = self.bot.get_cog("ShopCog")
+        if shop_cog:
+            await shop_cog.award_coins(user_id, "", COIN_REWARDS["study_log"], "学習ログ記録")
+
+        # 実績チェック
+        ach_cog = self.bot.get_cog("AchievementCog")
+        if ach_cog:
+            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
 
         streak = await self.manager.check_streak(user_id)
         if streak["bonus"]:
@@ -119,6 +163,14 @@ class GamificationCog(commands.Cog):
                     f"+{XP_REWARDS['streak_bonus']} XP",
                 )
             )
+
+    async def award_raid_xp(
+        self, user_id: int, base_xp: int, channel: discord.abc.Messageable
+    ) -> None:
+        """レイド完了時のXP付与（XP倍率適用）"""
+        multiplied_xp = int(base_xp * RAID_DEFAULTS["xp_multiplier"])
+        result = await self.manager.add_xp(user_id, multiplied_xp, "レイド完了")
+        await self._send_xp_notification(user_id, channel, result)
 
     async def _send_xp_notification(
         self, user_id: int, channel: discord.abc.Messageable, result: dict

@@ -49,6 +49,14 @@ class StudyBot(commands.Bot):
             "studybot.cogs.leaderboard",
             "studybot.cogs.ai_doc",
             "studybot.cogs.phone_nudge",
+            # Phase 2
+            "studybot.cogs.shop",
+            "studybot.cogs.raid",
+            "studybot.cogs.achievement",
+            "studybot.cogs.flashcard",
+            "studybot.cogs.study_plan",
+            "studybot.cogs.wellness",
+            "studybot.cogs.focus",
         ]
 
         for cog in cogs:

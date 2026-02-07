@@ -1,0 +1,121 @@
+"""ウェルネス ビジネスロジック"""
+
+import io
+import logging
+
+import matplotlib
+import matplotlib.pyplot as plt
+
+from studybot.config.constants import ENERGY_LABELS, MOOD_LABELS, STRESS_LABELS
+from studybot.repositories.wellness_repository import WellnessRepository
+
+matplotlib.use("Agg")
+
+logger = logging.getLogger(__name__)
+
+
+class WellnessManager:
+    """ウェルネスチェックの管理"""
+
+    def __init__(self, db_pool) -> None:
+        self.repository = WellnessRepository(db_pool)
+
+    async def log_wellness(
+        self,
+        user_id: int,
+        username: str,
+        mood: int,
+        energy: int,
+        stress: int,
+        note: str = "",
+    ) -> dict:
+        """ウェルネスを記録し、分析結果を返す"""
+        await self.repository.ensure_user(user_id, username)
+
+        log = await self.repository.log_wellness(user_id, mood, energy, stress, note)
+
+        # 警告メッセージを生成
+        warnings = []
+        if mood <= 2:
+            warnings.append("少し休憩を取りましょう")
+        if stress >= 4:
+            warnings.append("深呼吸やストレッチをしてみましょう")
+
+        # 7日間の平均値を取得
+        averages = await self.repository.get_averages(user_id, days=7)
+
+        return {
+            "logged": True,
+            "log": log,
+            "mood_label": MOOD_LABELS.get(mood, ""),
+            "energy_label": ENERGY_LABELS.get(energy, ""),
+            "stress_label": STRESS_LABELS.get(stress, ""),
+            "warning": "。".join(warnings) if warnings else None,
+            "averages": averages,
+        }
+
+    async def get_stats(self, user_id: int) -> dict:
+        """7日間のウェルネス統計を取得"""
+        averages = await self.repository.get_averages(user_id, days=7)
+        recent_logs = await self.repository.get_recent_logs(user_id, days=7)
+
+        if not averages:
+            return {
+                "has_data": False,
+                "message": "まだウェルネスデータがありません。/wellness check で記録しましょう！",
+            }
+
+        avg_mood = float(averages["avg_mood"])
+        avg_energy = float(averages["avg_energy"])
+        avg_stress = float(averages["avg_stress"])
+
+        # 最も近いラベルを取得
+        mood_label = MOOD_LABELS.get(round(avg_mood), "")
+        energy_label = ENERGY_LABELS.get(round(avg_energy), "")
+        stress_label = STRESS_LABELS.get(round(avg_stress), "")
+
+        return {
+            "has_data": True,
+            "avg_mood": avg_mood,
+            "avg_energy": avg_energy,
+            "avg_stress": avg_stress,
+            "mood_label": mood_label,
+            "energy_label": energy_label,
+            "stress_label": stress_label,
+            "log_count": int(averages["log_count"]),
+            "recent_logs": recent_logs,
+        }
+
+    async def generate_trend_chart(self, user_id: int, days: int = 14) -> io.BytesIO | None:
+        """ウェルネストレンドチャートを生成"""
+        data = await self.repository.get_daily_averages(user_id, days)
+        if not data:
+            return None
+
+        dates = [row["day"] for row in data]
+        moods = [float(row["avg_mood"]) for row in data]
+        energies = [float(row["avg_energy"]) for row in data]
+        stresses = [float(row["avg_stress"]) for row in data]
+
+        plt.rcParams["font.family"] = "sans-serif"
+        fig, ax = plt.subplots(figsize=(10, 5))
+
+        ax.plot(dates, moods, marker="o", color="#3498DB", linewidth=2, label="気分")
+        ax.plot(dates, energies, marker="s", color="#2ECC71", linewidth=2, label="エネルギー")
+        ax.plot(dates, stresses, marker="^", color="#E74C3C", linewidth=2, label="ストレス")
+
+        ax.set_xlabel("日付")
+        ax.set_ylabel("スコア (1-5)")
+        ax.set_title(f"過去{days}日間のウェルネストレンド")
+        ax.set_ylim(0.5, 5.5)
+        ax.legend(loc="upper left")
+        ax.grid(True, alpha=0.3)
+        fig.autofmt_xdate()
+        plt.tight_layout()
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight")
+        buf.seek(0)
+        plt.close(fig)
+
+        return buf

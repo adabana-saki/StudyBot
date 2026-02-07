@@ -59,3 +59,64 @@ class NudgeRepository(BaseRepository):
                 event_type,
                 message,
             )
+
+    async def create_lock_session(
+        self, user_id: int, lock_type: str, duration_minutes: int, coins_bet: int = 0
+    ) -> dict:
+        """ロックセッションを作成"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO phone_lock_sessions
+                    (user_id, lock_type, duration_minutes, coins_bet, state, started_at)
+                VALUES ($1, $2, $3, $4, 'active', NOW())
+                RETURNING *
+                """,
+                user_id,
+                lock_type,
+                duration_minutes,
+                coins_bet,
+            )
+        return dict(row)
+
+    async def get_active_lock(self, user_id: int) -> dict | None:
+        """アクティブなロックセッションを取得"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT * FROM phone_lock_sessions
+                WHERE user_id = $1 AND state = 'active'
+                ORDER BY started_at DESC
+                LIMIT 1
+                """,
+                user_id,
+            )
+        return dict(row) if row else None
+
+    async def complete_lock(self, session_id: int) -> dict | None:
+        """ロックセッションを完了に更新"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE phone_lock_sessions
+                SET state = 'completed', ended_at = NOW()
+                WHERE id = $1
+                RETURNING *
+                """,
+                session_id,
+            )
+        return dict(row) if row else None
+
+    async def break_lock(self, session_id: int) -> dict | None:
+        """ロックセッションを中断に更新"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE phone_lock_sessions
+                SET state = 'broken', ended_at = NOW()
+                WHERE id = $1
+                RETURNING *
+                """,
+                session_id,
+            )
+        return dict(row) if row else None

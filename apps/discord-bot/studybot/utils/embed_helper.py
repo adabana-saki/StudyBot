@@ -28,3 +28,28 @@ def study_embed(title: str, description: str = "") -> discord.Embed:
 def xp_embed(title: str, description: str = "") -> discord.Embed:
     """XP関連Embed"""
     return discord.Embed(title=title, description=description, color=COLORS["xp"])
+
+
+def coin_embed(title: str, description: str = "") -> discord.Embed:
+    """StudyCoin関連Embed"""
+    return discord.Embed(title=f"🪙 {title}", description=description, color=COLORS["coins"])
+
+
+def raid_embed(title: str, description: str = "") -> discord.Embed:
+    """スタディレイドEmbed"""
+    return discord.Embed(title=f"⚔️ {title}", description=description, color=COLORS["raid"])
+
+
+def wellness_embed(title: str, description: str = "") -> discord.Embed:
+    """ウェルネスEmbed"""
+    return discord.Embed(title=f"🧘 {title}", description=description, color=COLORS["wellness"])
+
+
+def achievement_embed(title: str, description: str = "") -> discord.Embed:
+    """実績Embed"""
+    return discord.Embed(title=f"🏆 {title}", description=description, color=COLORS["achievement"])
+
+
+def focus_embed(title: str, description: str = "") -> discord.Embed:
+    """フォーカスEmbed"""
+    return discord.Embed(title=f"🎯 {title}", description=description, color=COLORS["focus"])

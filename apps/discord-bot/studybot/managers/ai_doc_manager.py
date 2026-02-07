@@ -2,7 +2,9 @@
 
 import hashlib
 import io
+import json
 import logging
+import re
 
 from studybot.config.settings import settings
 from studybot.repositories.ai_doc_repository import AIDocRepository
@@ -127,6 +129,102 @@ class AIDocManager:
         except Exception as e:
             logger.error(f"PDF抽出エラー: {e}")
             return None
+
+    async def generate_quiz(
+        self,
+        user_id: int,
+        username: str,
+        file_content: bytes,
+        filename: str,
+        count: int = 5,
+    ) -> dict:
+        """ファイルからクイズを生成"""
+        await self.repository.ensure_user(user_id, username)
+
+        usage = await self.repository.get_daily_usage_count(user_id)
+        if usage >= settings.AI_DAILY_LIMIT:
+            return {"error": f"1日の使用制限({settings.AI_DAILY_LIMIT}回)に達しました。"}
+
+        text = await self._extract_text(file_content, filename)
+        if not text:
+            return {"error": "ファイルからテキストを抽出できませんでした。"}
+
+        prompt = (
+            f"以下のテキストから{count}問の4択クイズを生成してください。"
+            "JSON形式で回答してください。"
+            '形式: [{"question": "...", "choices": ["A: ...", "B: ...", "C: ...", "D: ..."], '
+            '"answer": "A", "explanation": "..."}]'
+            f"\n\n{text[:8000]}"
+        )
+
+        response = await self._call_openai(prompt)
+        if not response:
+            return {"error": "クイズの生成に失敗しました。"}
+
+        try:
+            # マークダウンコードフェンスを除去
+            cleaned = re.sub(r"```(?:json)?\s*", "", response)
+            cleaned = cleaned.strip().rstrip("`")
+            questions = json.loads(cleaned)
+            return {"questions": questions}
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"クイズJSON解析エラー: {e}")
+            return {"error": "クイズの解析に失敗しました。"}
+
+    async def ask_question(
+        self,
+        user_id: int,
+        username: str,
+        file_content: bytes,
+        filename: str,
+        question: str,
+    ) -> dict:
+        """ドキュメントについて質問"""
+        await self.repository.ensure_user(user_id, username)
+
+        usage = await self.repository.get_daily_usage_count(user_id)
+        if usage >= settings.AI_DAILY_LIMIT:
+            return {"error": f"1日の使用制限({settings.AI_DAILY_LIMIT}回)に達しました。"}
+
+        text = await self._extract_text(file_content, filename)
+        if not text:
+            return {"error": "ファイルからテキストを抽出できませんでした。"}
+
+        prompt = (
+            "以下のテキストの内容に基づいて質問に回答してください。\n\n"
+            f"テキスト:\n{text[:8000]}\n\n"
+            f"質問: {question}"
+        )
+
+        answer = await self._call_openai(prompt)
+        if not answer:
+            return {"error": "回答の生成に失敗しました。"}
+
+        return {"answer": answer}
+
+    async def explain_concept(
+        self,
+        user_id: int,
+        username: str,
+        concept: str,
+    ) -> dict:
+        """概念を説明"""
+        await self.repository.ensure_user(user_id, username)
+
+        usage = await self.repository.get_daily_usage_count(user_id)
+        if usage >= settings.AI_DAILY_LIMIT:
+            return {"error": f"1日の使用制限({settings.AI_DAILY_LIMIT}回)に達しました。"}
+
+        prompt = (
+            f"「{concept}」について、学生にもわかりやすく丁寧に説明してください。"
+            "必要に応じて具体例も含めてください。"
+        )
+
+        explanation = await self._call_openai(prompt)
+        if not explanation:
+            return {"error": "説明の生成に失敗しました。"}
+
+        return {"explanation": explanation}
 
     async def _call_openai(self, prompt: str) -> str | None:
         """OpenAI APIを呼び出し"""

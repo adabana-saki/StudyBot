@@ -26,6 +26,13 @@ class Settings:
         self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
         self.AI_DAILY_LIMIT: int = int(os.getenv("AI_DAILY_LIMIT", "10"))
 
+        # API / Web (Phase 2)
+        self.API_SECRET_KEY: str = os.getenv("API_SECRET_KEY", "change-me-in-production")
+        self.DISCORD_CLIENT_ID: str = os.getenv("DISCORD_CLIENT_ID", "")
+        self.DISCORD_CLIENT_SECRET: str = os.getenv("DISCORD_CLIENT_SECRET", "")
+        self.API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:8000")
+        self.WEB_BASE_URL: str = os.getenv("WEB_BASE_URL", "http://localhost:3000")
+
         # Logging
         self.LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
