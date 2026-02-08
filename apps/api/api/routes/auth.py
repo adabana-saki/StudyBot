@@ -1,6 +1,7 @@
 """認証ルート"""
 
 import logging
+import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
@@ -9,10 +10,14 @@ from api.auth.discord_oauth import exchange_code, get_user_info
 from api.auth.jwt_handler import create_access_token, create_refresh_token, decode_token
 from api.config import settings
 from api.database import get_pool
-from api.models.schemas import RefreshRequest, TokenResponse
+from api.models.schemas import AuthCodeExchangeRequest, RefreshRequest, TokenResponse
+from api.services.redis_client import get_redis
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
+
+AUTH_CODE_TTL = 60  # 認証コードの有効期限（秒）
+AUTH_CODE_PREFIX = "auth_code:"
 
 
 @router.get("/discord")
@@ -64,9 +69,44 @@ async def discord_callback(code: str = Query(...)):
     jwt_access = create_access_token(user_id, username)
     jwt_refresh = create_refresh_token(user_id)
 
-    # WebUIにリダイレクト
-    redirect_url = f"{settings.WEB_BASE_URL}/auth/callback?token={jwt_access}&refresh={jwt_refresh}"
+    # 短命の認証コードをRedisに保存（JWTをURLに露出させない）
+    auth_code = str(uuid.uuid4())
+    redis = get_redis()
+    await redis.set(
+        f"{AUTH_CODE_PREFIX}{auth_code}",
+        f"{jwt_access}\n{jwt_refresh}",
+        ex=AUTH_CODE_TTL,
+    )
+
+    # WebUIにリダイレクト（認証コードのみ）
+    redirect_url = f"{settings.WEB_BASE_URL}/auth/callback?code={auth_code}"
     return RedirectResponse(redirect_url)
+
+
+@router.post("/exchange", response_model=TokenResponse)
+async def exchange_auth_code(request: AuthCodeExchangeRequest):
+    """認証コードをJWTトークンに交換"""
+    redis = get_redis()
+    key = f"{AUTH_CODE_PREFIX}{request.code}"
+    stored = await redis.get(key)
+
+    if not stored:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="認証コードが無効か有効期限切れです",
+        )
+
+    # 使い捨て: 即座に削除
+    await redis.delete(key)
+
+    parts = stored.split("\n", 1)
+    if len(parts) != 2:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="認証データが不正です",
+        )
+
+    return TokenResponse(access_token=parts[0], refresh_token=parts[1])
 
 
 @router.post("/refresh", response_model=TokenResponse)

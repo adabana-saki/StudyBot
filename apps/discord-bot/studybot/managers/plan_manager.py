@@ -6,6 +6,7 @@ import re
 
 from studybot.config.settings import settings
 from studybot.repositories.plan_repository import PlanRepository
+from studybot.services.openai_service import call_openai
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ class PlanManager:
 
     async def _generate_tasks(self, prompt: str) -> list[dict] | None:
         """AIでタスクリストを生成"""
-        response = await self._call_openai(prompt)
+        response = await call_openai(prompt, max_tokens=1200)
         if not response:
             return None
 
@@ -126,28 +127,4 @@ class PlanManager:
             f"({progress['percentage']}%)\n\n"
             "励ましと、残りのタスクを効率的に進めるアドバイスを簡潔に述べてください。"
         )
-        return await self._call_openai(prompt)
-
-    async def _call_openai(self, prompt: str) -> str | None:
-        """OpenAI APIを呼び出し"""
-        if not settings.OPENAI_API_KEY:
-            logger.error("OPENAI_API_KEY が設定されていません")
-            return None
-
-        try:
-            import openai
-
-            client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-            response = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "あなたは優秀な学習アシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=2000,
-                temperature=0.3,
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI API エラー: {e}")
-            return None
+        return await call_openai(prompt, max_tokens=500)

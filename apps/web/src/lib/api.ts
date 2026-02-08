@@ -258,3 +258,457 @@ export function logWellness(data: {
     body: JSON.stringify(data),
   });
 }
+
+// === Shop ===
+export interface ShopItem {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  rarity: string;
+  emoji: string;
+}
+
+export interface InventoryItem {
+  id: number;
+  item_id: number;
+  name: string;
+  emoji: string;
+  category: string;
+  quantity: number;
+  equipped: boolean;
+}
+
+export interface CurrencyBalance {
+  balance: number;
+  total_earned: number;
+  total_spent: number;
+}
+
+export function getShopItems(category?: string): Promise<ShopItem[]> {
+  const params = category ? `?category=${category}` : "";
+  return fetchAPI<ShopItem[]>(`/api/shop/items${params}`);
+}
+
+export function getInventory(): Promise<InventoryItem[]> {
+  return fetchAPI<InventoryItem[]>("/api/shop/inventory");
+}
+
+export function purchaseItem(itemId: number): Promise<{ message: string; balance: number }> {
+  return fetchAPI("/api/shop/purchase", {
+    method: "POST",
+    body: JSON.stringify({ item_id: itemId }),
+  });
+}
+
+export function getCurrencyBalance(): Promise<CurrencyBalance> {
+  return fetchAPI<CurrencyBalance>("/api/shop/balance");
+}
+
+// === Todos ===
+export interface TodoItem {
+  id: number;
+  title: string;
+  priority: number;
+  status: string;
+  deadline: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export function getTodos(status?: string): Promise<TodoItem[]> {
+  const params = status ? `?status=${status}` : "";
+  return fetchAPI<TodoItem[]>(`/api/todos${params}`);
+}
+
+export function createTodo(data: {
+  title: string;
+  priority?: number;
+  deadline?: string;
+}): Promise<TodoItem> {
+  return fetchAPI<TodoItem>("/api/todos", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function completeTodo(id: number): Promise<TodoItem> {
+  return fetchAPI<TodoItem>(`/api/todos/${id}/complete`, { method: "POST" });
+}
+
+export function deleteTodo(id: number): Promise<void> {
+  return fetchAPI(`/api/todos/${id}`, { method: "DELETE" });
+}
+
+// === Plans ===
+export interface StudyPlanItem {
+  id: number;
+  subject: string;
+  goal: string;
+  deadline: string | null;
+  status: string;
+  ai_feedback: string | null;
+  created_at: string;
+}
+
+export interface PlanTask {
+  id: number;
+  title: string;
+  description: string;
+  order_index: number;
+  status: string;
+  completed_at: string | null;
+}
+
+export interface StudyPlanDetail extends StudyPlanItem {
+  tasks: PlanTask[];
+}
+
+export function getPlans(): Promise<StudyPlanItem[]> {
+  return fetchAPI<StudyPlanItem[]>("/api/plans");
+}
+
+export function getPlanDetail(id: number): Promise<StudyPlanDetail> {
+  return fetchAPI<StudyPlanDetail>(`/api/plans/${id}`);
+}
+
+// === Profile ===
+export interface UserPreferences {
+  display_name: string | null;
+  bio: string;
+  timezone: string;
+  daily_goal_minutes: number;
+  notifications_enabled: boolean;
+  theme: string;
+  custom_title: string | null;
+}
+
+export interface ProfileDetail {
+  user_id: number;
+  username: string;
+  xp: number;
+  level: number;
+  streak_days: number;
+  coins: number;
+  rank: number;
+  preferences: UserPreferences | null;
+}
+
+export function getProfileDetail(): Promise<ProfileDetail> {
+  return fetchAPI<ProfileDetail>("/api/profile/me");
+}
+
+export function updateProfile(data: {
+  display_name?: string;
+  bio?: string;
+  timezone?: string;
+  daily_goal_minutes?: number;
+}): Promise<ProfileDetail> {
+  return fetchAPI<ProfileDetail>("/api/profile/me", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+// === Server Stats ===
+export interface ServerStats {
+  member_count: number;
+  total_minutes: number;
+  total_sessions: number;
+  weekly_minutes: number;
+  weekly_active_members: number;
+  tasks_completed: number;
+  raids_completed: number;
+}
+
+export function getServerStats(guildId: string): Promise<ServerStats> {
+  return fetchAPI<ServerStats>(`/api/server/${guildId}/stats`);
+}
+
+// === Focus / Lock ===
+export interface FocusSession {
+  session_id: number;
+  lock_type: string;
+  duration_minutes: number;
+  coins_bet: number;
+  unlock_level: number;
+  state: string;
+  remaining_seconds: number;
+  remaining_minutes: number;
+  end_time: string | null;
+  started_at: string | null;
+}
+
+export interface FocusHistoryEntry {
+  id: number;
+  lock_type: string;
+  duration_minutes: number;
+  coins_bet: number;
+  unlock_level: number;
+  state: string;
+  started_at: string;
+  ended_at: string | null;
+}
+
+export interface LockSettings {
+  default_unlock_level: number;
+  default_duration: number;
+  default_coin_bet: number;
+  block_categories: string[];
+  custom_blocked_urls: string[];
+}
+
+export interface UnlockResult {
+  success: boolean;
+  coins_earned: number;
+  coins_returned: number;
+  message: string;
+}
+
+export function getFocusStatus(): Promise<FocusSession | null> {
+  return fetchAPI<FocusSession | null>("/api/focus/status");
+}
+
+export function startFocus(data: {
+  duration: number;
+  unlock_level: number;
+  coins_bet: number;
+}): Promise<FocusSession> {
+  return fetchAPI<FocusSession>("/api/focus/start", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function endFocus(): Promise<UnlockResult> {
+  return fetchAPI<UnlockResult>("/api/focus/end", { method: "POST" });
+}
+
+export function unlockWithCode(code: string): Promise<UnlockResult> {
+  return fetchAPI<UnlockResult>("/api/focus/unlock", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function penaltyUnlock(): Promise<{
+  success: boolean;
+  coins_lost: number;
+  penalty_rate: number;
+  message: string;
+}> {
+  return fetchAPI("/api/focus/penalty-unlock", { method: "POST" });
+}
+
+export function requestFocusCode(): Promise<{ message: string }> {
+  return fetchAPI("/api/focus/request-code", { method: "POST" });
+}
+
+export function getLockSettings(): Promise<LockSettings> {
+  return fetchAPI<LockSettings>("/api/focus/settings");
+}
+
+export function updateLockSettings(data: Partial<LockSettings>): Promise<LockSettings> {
+  return fetchAPI<LockSettings>("/api/focus/settings", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function getFocusHistory(limit: number = 20): Promise<FocusHistoryEntry[]> {
+  return fetchAPI<FocusHistoryEntry[]>(`/api/focus/history?limit=${limit}`);
+}
+
+// === Activity ===
+export interface ActivityEvent {
+  id: number;
+  user_id: number;
+  username: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ActiveStudier {
+  user_id: number;
+  username: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  started_at: string;
+}
+
+export function getActivityFeed(guildId: string, limit: number = 50): Promise<ActivityEvent[]> {
+  return fetchAPI<ActivityEvent[]>(`/api/activity/${guildId}?limit=${limit}`);
+}
+
+export function getStudyingNow(guildId: string): Promise<ActiveStudier[]> {
+  return fetchAPI<ActiveStudier[]>(`/api/activity/${guildId}/studying-now`);
+}
+
+// === Buddy ===
+export interface BuddyProfile {
+  user_id: number;
+  subjects: string[];
+  preferred_times: string[];
+  study_style: string;
+  active: boolean;
+  username?: string;
+}
+
+export interface BuddyMatch {
+  id: number;
+  user_a: number;
+  user_b: number;
+  username_a: string;
+  username_b: string;
+  guild_id: number;
+  subject: string | null;
+  compatibility_score: number;
+  status: string;
+  matched_at: string;
+}
+
+export function getBuddyProfile(): Promise<BuddyProfile | null> {
+  return fetchAPI<BuddyProfile | null>("/api/buddy/profile");
+}
+
+export function updateBuddyProfile(data: {
+  subjects?: string[];
+  preferred_times?: string[];
+  study_style?: string;
+}): Promise<BuddyProfile> {
+  return fetchAPI<BuddyProfile>("/api/buddy/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function getBuddyMatches(): Promise<BuddyMatch[]> {
+  return fetchAPI<BuddyMatch[]>("/api/buddy/matches");
+}
+
+export function getAvailableBuddies(): Promise<BuddyProfile[]> {
+  return fetchAPI<BuddyProfile[]>("/api/buddy/available");
+}
+
+// === Challenges ===
+export interface Challenge {
+  id: number;
+  creator_id: number;
+  creator_name: string;
+  guild_id: number;
+  name: string;
+  description: string;
+  goal_type: string;
+  goal_target: number;
+  duration_days: number;
+  start_date: string;
+  end_date: string;
+  xp_multiplier: number;
+  status: string;
+  participant_count: number;
+  created_at: string;
+}
+
+export interface ChallengeLeaderboardEntry {
+  user_id: number;
+  username: string;
+  progress: number;
+  checkins: number;
+  completed: boolean;
+}
+
+export interface ChallengeDetail extends Challenge {
+  participants: ChallengeLeaderboardEntry[];
+}
+
+export function getChallenges(guildId: string = "0", status?: string): Promise<Challenge[]> {
+  const params = status ? `&status=${status}` : "";
+  return fetchAPI<Challenge[]>(`/api/challenges?guild_id=${guildId}${params}`);
+}
+
+export function getChallengeDetail(id: number): Promise<ChallengeDetail> {
+  return fetchAPI<ChallengeDetail>(`/api/challenges/${id}`);
+}
+
+export function joinChallenge(id: number): Promise<{ message: string }> {
+  return fetchAPI(`/api/challenges/${id}/join`, { method: "POST" });
+}
+
+export function challengeCheckin(id: number, progress: number, note?: string): Promise<{ message: string }> {
+  return fetchAPI(`/api/challenges/${id}/checkin`, {
+    method: "POST",
+    body: JSON.stringify({ progress, note: note || "" }),
+  });
+}
+
+export function getChallengeLeaderboard(id: number): Promise<ChallengeLeaderboardEntry[]> {
+  return fetchAPI<ChallengeLeaderboardEntry[]>(`/api/challenges/${id}/leaderboard`);
+}
+
+// === Sessions ===
+export interface ActiveSession {
+  id: number;
+  user_id: number;
+  username: string;
+  session_type: string;
+  source_platform: string;
+  topic: string;
+  duration_minutes: number;
+  started_at: string;
+  end_time: string;
+  remaining_seconds: number;
+}
+
+export function getActiveSessions(): Promise<ActiveSession[]> {
+  return fetchAPI<ActiveSession[]>("/api/sessions/active");
+}
+
+export function startSession(data: {
+  session_type: string;
+  duration_minutes: number;
+  topic?: string;
+}): Promise<ActiveSession> {
+  return fetchAPI<ActiveSession>("/api/sessions/start", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function endSession(): Promise<{ message: string }> {
+  return fetchAPI("/api/sessions/end", { method: "POST" });
+}
+
+// === Insights ===
+export interface UserInsight {
+  id: number;
+  insight_type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  confidence: number;
+  generated_at: string;
+}
+
+export interface WeeklyReport {
+  id: number;
+  week_start: string;
+  week_end: string;
+  summary: string;
+  insights: Array<{ type: string; title: string; body: string; confidence: number }>;
+  generated_at: string;
+  raw_data?: Record<string, unknown>;
+}
+
+export function getMyInsights(): Promise<UserInsight[]> {
+  return fetchAPI<UserInsight[]>("/api/insights/me");
+}
+
+export function getMyReports(): Promise<WeeklyReport[]> {
+  return fetchAPI<WeeklyReport[]>("/api/insights/me/reports");
+}
+
+export function getReportDetail(id: number): Promise<WeeklyReport> {
+  return fetchAPI<WeeklyReport>(`/api/insights/me/reports/${id}`);
+}

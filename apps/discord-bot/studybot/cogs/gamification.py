@@ -1,14 +1,17 @@
 """ゲーミフィケーション（XP/レベル）Cog"""
 
 import logging
+from datetime import date, time, timedelta, timezone
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from studybot.config.constants import COIN_REWARDS, COLORS, RAID_DEFAULTS, XP_REWARDS
 from studybot.managers.gamification_manager import GamificationManager
 from studybot.utils.embed_helper import xp_embed
+
+JST = timezone(timedelta(hours=9))
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,74 @@ def _progress_bar(current: int, target: int, width: int = 15) -> str:
     return f"[{bar}] {current}/{target} XP"
 
 
+class ProfileEditModal(discord.ui.Modal, title="プロフィール編集"):
+    """プロフィール編集モーダル"""
+
+    bio_input = discord.ui.TextInput(
+        label="自己紹介",
+        placeholder="例: 毎日プログラミングを勉強しています！",
+        required=False,
+        style=discord.TextStyle.paragraph,
+        max_length=200,
+    )
+    title_input = discord.ui.TextInput(
+        label="カスタム称号",
+        placeholder="例: Python マスター",
+        required=False,
+        max_length=100,
+    )
+    timezone_input = discord.ui.TextInput(
+        label="タイムゾーン",
+        placeholder="Asia/Tokyo",
+        default="Asia/Tokyo",
+        required=False,
+        max_length=50,
+    )
+    goal_input = discord.ui.TextInput(
+        label="日目標（分）",
+        placeholder="60",
+        default="60",
+        required=False,
+        max_length=5,
+    )
+
+    def __init__(self, cog: "GamificationCog") -> None:
+        super().__init__()
+        self.cog = cog
+
+    async def on_submit(self, interaction: discord.Interaction):
+        shop_cog = self.cog.bot.get_cog("ShopCog")
+        if not shop_cog:
+            await interaction.response.send_message(
+                "プロフィール編集機能は現在利用できません。", ephemeral=True
+            )
+            return
+
+        daily_goal = 60
+        if self.goal_input.value.strip():
+            try:
+                daily_goal = int(self.goal_input.value.strip())
+                daily_goal = max(10, min(daily_goal, 720))
+            except ValueError:
+                daily_goal = 60
+
+        await shop_cog.manager.update_user_preferences(
+            interaction.user.id,
+            bio=self.bio_input.value or "",
+            custom_title=self.title_input.value or None,
+            timezone=self.timezone_input.value or "Asia/Tokyo",
+            daily_goal_minutes=daily_goal,
+        )
+
+        from studybot.utils.embed_helper import success_embed
+
+        embed = success_embed(
+            "プロフィール更新完了",
+            "プロフィールを更新しました！\n`/profile` で確認できます。",
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 class GamificationCog(commands.Cog):
     """XP & レベルシステム"""
 
@@ -28,21 +99,110 @@ class GamificationCog(commands.Cog):
         self.bot = bot
         self.manager = manager
 
-    @app_commands.command(name="profile", description="自分のプロフィールを表示")
-    async def profile(self, interaction: discord.Interaction):
-        await interaction.response.defer()
+    async def cog_load(self) -> None:
+        self.streak_protection_dm.start()
+
+    async def cog_unload(self) -> None:
+        self.streak_protection_dm.cancel()
+
+    @app_commands.command(name="streak", description="連続学習の詳細を表示")
+    async def streak(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
 
         await self.manager.ensure_user(interaction.user.id, interaction.user.display_name)
-        profile = await self.manager.get_profile(interaction.user.id)
+        details = await self.manager.get_streak_details(interaction.user.id)
+
+        if not details:
+            await interaction.followup.send("ストリーク情報が見つかりません。", ephemeral=True)
+            return
+
+        streak = details["streak_days"]
+        best = details["best_streak"]
+        next_ms = details["next_milestone"]
+        days_until = details["days_until_milestone"]
+
+        # 火の絵文字スケーリング
+        fire_count = max(1, streak // 7) if streak > 0 else 0
+        fire_display = "🔥" * min(fire_count, 10) if fire_count > 0 else "—"
+
+        embed = discord.Embed(
+            title=f"🔥 連続学習ストリーク",
+            color=COLORS["xp"],
+        )
+
+        embed.add_field(
+            name="現在のストリーク",
+            value=f"{fire_display}\n**{streak}日連続**",
+            inline=True,
+        )
+        embed.add_field(
+            name="最高記録",
+            value=f"🏆 **{best}日**",
+            inline=True,
+        )
+
+        if next_ms:
+            # プログレスバー
+            prev_milestones = [0, 7, 14, 30, 60, 100]
+            prev_ms = 0
+            for pm in prev_milestones:
+                if pm < next_ms and streak >= pm:
+                    prev_ms = pm
+            progress_in_segment = streak - prev_ms
+            segment_size = next_ms - prev_ms
+            ratio = min(1.0, progress_in_segment / segment_size) if segment_size > 0 else 0
+            filled = int(15 * ratio)
+            bar = "▓" * filled + "░" * (15 - filled)
+            embed.add_field(
+                name=f"次のマイルストーン: {next_ms}日",
+                value=f"[{bar}] あと**{days_until}日**",
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="マイルストーン",
+                value="🎉 全マイルストーン達成！",
+                inline=False,
+            )
+
+        embed.set_footer(text="毎日学習してストリークを伸ばそう！")
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="profile", description="プロフィールを表示")
+    @app_commands.describe(user="表示するユーザー（省略で自分）")
+    async def profile(self, interaction: discord.Interaction, user: discord.Member | None = None):
+        await interaction.response.defer()
+
+        target = user or interaction.user
+        await self.manager.ensure_user(target.id, target.display_name)
+        profile = await self.manager.get_profile(target.id)
 
         if not profile:
             await interaction.followup.send("プロフィールが見つかりません。", ephemeral=True)
             return
 
+        # ユーザー設定を取得
+        prefs = None
+        shop_cog = self.bot.get_cog("ShopCog")
+        if shop_cog:
+            try:
+                prefs = await shop_cog.manager.get_user_preferences(target.id)
+            except Exception:
+                logger.debug("ユーザー設定取得失敗 (user=%d)", target.id, exc_info=True)
+
+        title_text = f"{profile['badge']} {target.display_name}"
+        if prefs and prefs.get("custom_title"):
+            title_text = f"{profile['badge']} {target.display_name} | {prefs['custom_title']}"
+
         embed = discord.Embed(
-            title=f"{profile['badge']} {interaction.user.display_name}",
+            title=title_text,
             color=COLORS["xp"],
         )
+
+        if prefs and prefs.get("bio"):
+            embed.description = prefs["bio"]
+
         embed.add_field(name="レベル", value=f"Lv.{profile['level']}", inline=True)
         embed.add_field(name="総XP", value=f"{profile['xp']:,} XP", inline=True)
         embed.add_field(name="ランク", value=f"#{profile['rank']}", inline=True)
@@ -56,9 +216,26 @@ class GamificationCog(commands.Cog):
             value=f"🔥 {profile['streak_days']}日",
             inline=True,
         )
-        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+
+        # 装備アイテム表示
+        if shop_cog:
+            try:
+                inventory = await shop_cog.manager.get_inventory(target.id)
+                equipped = [i for i in inventory if i.get("equipped")]
+                if equipped:
+                    equip_text = ", ".join(f"{i['emoji']} {i['name']}" for i in equipped)
+                    embed.add_field(name="装備", value=equip_text, inline=False)
+            except Exception:
+                logger.debug("装備アイテム取得失敗 (user=%d)", target.id, exc_info=True)
+
+        embed.set_thumbnail(url=target.display_avatar.url)
 
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="profile_edit", description="プロフィールを編集")
+    async def profile_edit(self, interaction: discord.Interaction):
+        """モーダルでプロフィールを編集"""
+        await interaction.response.send_modal(ProfileEditModal(self))
 
     @app_commands.command(name="xp", description="現在のXPとレベルを表示")
     async def xp_command(self, interaction: discord.Interaction):
@@ -84,14 +261,20 @@ class GamificationCog(commands.Cog):
         # StudyCoin付与
         shop_cog = self.bot.get_cog("ShopCog")
         if shop_cog:
-            await shop_cog.award_coins(
-                user_id, "", COIN_REWARDS["pomodoro_complete"], "ポモドーロ完了"
-            )
+            try:
+                await shop_cog.award_coins(
+                    user_id, "", COIN_REWARDS["pomodoro_complete"], "ポモドーロ完了"
+                )
+            except Exception:
+                logger.warning("ポモドーロ完了のコイン付与に失敗", exc_info=True)
 
         # 実績チェック
         ach_cog = self.bot.get_cog("AchievementCog")
         if ach_cog:
-            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            try:
+                await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            except Exception:
+                logger.warning("実績チェックに失敗", exc_info=True)
 
         # 連続学習チェック
         streak = await self.manager.check_streak(user_id)
@@ -110,13 +293,21 @@ class GamificationCog(commands.Cog):
 
             # 連続学習のコインボーナス
             if shop_cog and streak["streak"] >= 7:
-                coin_key = "streak_bonus_30" if streak["streak"] >= 30 else "streak_bonus_7"
-                await shop_cog.award_coins(user_id, "", COIN_REWARDS[coin_key], "連続学習ボーナス")
+                try:
+                    coin_key = "streak_bonus_30" if streak["streak"] >= 30 else "streak_bonus_7"
+                    await shop_cog.award_coins(
+                        user_id, "", COIN_REWARDS[coin_key], "連続学習ボーナス"
+                    )
+                except Exception:
+                    logger.warning("連続学習コインボーナス付与に失敗", exc_info=True)
 
             # 連続学習の実績チェック
             if ach_cog:
-                await ach_cog.check_achievement(user_id, "streak_7", streak["streak"], channel)
-                await ach_cog.check_achievement(user_id, "streak_30", streak["streak"], channel)
+                try:
+                    await ach_cog.check_achievement(user_id, "streak_7", streak["streak"], channel)
+                    await ach_cog.check_achievement(user_id, "streak_30", streak["streak"], channel)
+                except Exception:
+                    logger.warning("連続学習の実績チェックに失敗", exc_info=True)
 
     async def award_task_xp(
         self, user_id: int, priority: int, channel: discord.abc.Messageable
@@ -131,13 +322,19 @@ class GamificationCog(commands.Cog):
         # StudyCoin付与
         shop_cog = self.bot.get_cog("ShopCog")
         if shop_cog:
-            coin_amount = COIN_REWARDS.get(key, 5)
-            await shop_cog.award_coins(user_id, "", coin_amount, "タスク完了")
+            try:
+                coin_amount = COIN_REWARDS.get(key, 5)
+                await shop_cog.award_coins(user_id, "", coin_amount, "タスク完了")
+            except Exception:
+                logger.warning("タスク完了のコイン付与に失敗", exc_info=True)
 
         # 実績チェック
         ach_cog = self.bot.get_cog("AchievementCog")
         if ach_cog:
-            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            try:
+                await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            except Exception:
+                logger.warning("タスク完了の実績チェックに失敗", exc_info=True)
 
     async def award_study_log_xp(self, user_id: int, channel: discord.abc.Messageable) -> None:
         """学習ログ記録時のXP付与"""
@@ -148,12 +345,18 @@ class GamificationCog(commands.Cog):
         # StudyCoin付与
         shop_cog = self.bot.get_cog("ShopCog")
         if shop_cog:
-            await shop_cog.award_coins(user_id, "", COIN_REWARDS["study_log"], "学習ログ記録")
+            try:
+                await shop_cog.award_coins(user_id, "", COIN_REWARDS["study_log"], "学習ログ記録")
+            except Exception:
+                logger.warning("学習ログのコイン付与に失敗", exc_info=True)
 
         # 実績チェック
         ach_cog = self.bot.get_cog("AchievementCog")
         if ach_cog:
-            await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            try:
+                await ach_cog.check_achievement(user_id, "first_study", 1, channel)
+            except Exception:
+                logger.warning("学習ログの実績チェックに失敗", exc_info=True)
 
         streak = await self.manager.check_streak(user_id)
         if streak["bonus"]:
@@ -185,6 +388,19 @@ class GamificationCog(commands.Cog):
         )
         await channel.send(f"<@{user_id}>", embed=embed)
 
+        # イベント発行: XP獲得
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_xp_gain(
+                    user_id=user_id,
+                    guild_id=0,
+                    username=result.get("username", ""),
+                    amount=result.get("xp_gained", 0),
+                    reason=result.get("reason", ""),
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
         if result.get("leveled_up"):
             await self._send_levelup(user_id, channel, result)
 
@@ -208,14 +424,61 @@ class GamificationCog(commands.Cog):
         )
         await channel.send(f"<@{user_id}>", embed=embed)
 
+        # イベント発行: レベルアップ
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_level_up(
+                    user_id=user_id,
+                    guild_id=0,
+                    username=result.get("username", ""),
+                    new_level=result.get("new_level", 0),
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
         # スマホ通知
         nudge_cog = self.bot.get_cog("PhoneNudgeCog")
         if nudge_cog:
-            await nudge_cog.send_nudge(
-                user_id,
-                "level_up",
-                f"🎉 レベルアップ！ Lv.{result['new_level']} に到達しました！",
-            )
+            try:
+                await nudge_cog.send_nudge(
+                    user_id,
+                    "level_up",
+                    f"🎉 レベルアップ！ Lv.{result['new_level']} に到達しました！",
+                )
+            except Exception:
+                logger.warning("レベルアップ通知の送信に失敗", exc_info=True)
+
+    @tasks.loop(time=time(hour=21, minute=0, tzinfo=JST))
+    async def streak_protection_dm(self):
+        """毎日21:00 JSTにストリーク保護DMを送信"""
+        today = date.today()
+        users = await self.manager.repository.get_users_needing_streak_reminder(today)
+
+        for user_data in users:
+            try:
+                user = self.bot.get_user(user_data["user_id"])
+                if not user:
+                    try:
+                        user = await self.bot.fetch_user(user_data["user_id"])
+                    except discord.NotFound:
+                        continue
+
+                streak = user_data["streak_days"]
+                await user.send(
+                    f"🔥 {streak}日連続学習中！今日もあと少し学習して記録を守りましょう！"
+                )
+            except discord.Forbidden:
+                logger.debug("DM送信不可: user=%d", user_data["user_id"])
+            except Exception:
+                logger.warning(
+                    "ストリーク保護DM送信失敗: user=%d",
+                    user_data["user_id"],
+                    exc_info=True,
+                )
+
+    @streak_protection_dm.before_loop
+    async def before_streak_protection_dm(self):
+        await self.bot.wait_until_ready()
 
 
 async def setup(bot: commands.Bot):

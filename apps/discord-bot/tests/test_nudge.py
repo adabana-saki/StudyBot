@@ -1,6 +1,7 @@
 """スマホ通知のテスト"""
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import pytest
 
@@ -15,7 +16,8 @@ def nudge_manager(mock_db_pool):
 
 
 @pytest.mark.asyncio
-async def test_setup_webhook(nudge_manager):
+@patch("studybot.managers.nudge_manager._is_safe_url", return_value=True)
+async def test_setup_webhook(_mock_safe, nudge_manager):
     """Webhook設定テスト"""
     manager, conn = nudge_manager
 
@@ -33,6 +35,17 @@ async def test_setup_webhook_invalid_url(nudge_manager):
 
     result = await manager.setup_webhook(123, "Test", "not-a-url")
     assert "error" in result
+
+
+@pytest.mark.asyncio
+@patch("studybot.managers.nudge_manager._is_safe_url", return_value=False)
+async def test_setup_webhook_ssrf_blocked(_mock_safe, nudge_manager):
+    """プライベートIPへのWebhookがブロックされる"""
+    manager, conn = nudge_manager
+
+    result = await manager.setup_webhook(123, "Test", "http://192.168.1.1/webhook")
+    assert "error" in result
+    assert "プライベートIP" in result["error"]
 
 
 @pytest.mark.asyncio
@@ -271,15 +284,16 @@ async def test_get_lock_status(nudge_manager):
 
 @pytest.mark.asyncio
 async def test_check_locks_expired(nudge_manager):
-    """期限切れロックの完了チェック"""
+    """期限切れロックの完了チェック（レベル1のみ自動完了）"""
     manager, conn = nudge_manager
 
-    # 期限切れのロックを設定
+    # 期限切れのロックを設定（レベル1）
     manager.active_locks[123] = {
         "session_id": 1,
         "end_time": datetime.now(UTC) - timedelta(minutes=5),
         "coins_bet": 10,
         "lock_type": "lock",
+        "unlock_level": 1,
     }
 
     completed_row = {
@@ -301,3 +315,171 @@ async def test_check_locks_expired(nudge_manager):
     assert completed[0]["user_id"] == 123
     assert completed[0]["coins_earned"] == 15
     assert 123 not in manager.active_locks
+
+
+@pytest.mark.asyncio
+async def test_check_locks_level2_not_auto_complete(nudge_manager):
+    """レベル2以上は自動完了しない"""
+    manager, conn = nudge_manager
+
+    manager.active_locks[456] = {
+        "session_id": 2,
+        "end_time": datetime.now(UTC) - timedelta(minutes=5),
+        "coins_bet": 20,
+        "lock_type": "lock",
+        "unlock_level": 2,
+    }
+
+    completed = await manager.check_locks()
+
+    assert len(completed) == 0
+    assert 456 in manager.active_locks
+
+    # クリーンアップ
+    manager.active_locks.pop(456, None)
+
+
+@pytest.mark.asyncio
+async def test_start_lock_with_unlock_level(nudge_manager):
+    """アンロックレベル付きロック作成テスト"""
+    manager, conn = nudge_manager
+
+    conn.fetchrow.return_value = None
+    conn.execute.return_value = None
+
+    lock_row = {
+        "id": 3,
+        "user_id": 789,
+        "lock_type": "lock",
+        "duration_minutes": 60,
+        "coins_bet": 50,
+        "unlock_level": 3,
+        "state": "active",
+        "started_at": datetime.now(UTC),
+        "ended_at": None,
+    }
+    conn.fetchrow.side_effect = [None, lock_row]
+
+    result = await manager.start_lock(789, "Test", 60, coins_bet=50, unlock_level=3)
+
+    assert "error" not in result
+    assert result["unlock_level"] == 3
+    assert result["session_id"] == 3
+    assert manager.active_locks[789]["unlock_level"] == 3
+
+    # クリーンアップ
+    manager.active_locks.pop(789, None)
+
+
+@pytest.mark.asyncio
+async def test_start_lock_invalid_unlock_level(nudge_manager):
+    """無効なアンロックレベルでのエラー"""
+    manager, conn = nudge_manager
+
+    conn.fetchrow.return_value = None  # no active lock
+
+    result = await manager.start_lock(123, "Test", 30, unlock_level=6)
+    assert "error" in result
+
+
+@pytest.mark.asyncio
+async def test_penalty_unlock(nudge_manager):
+    """ペナルティ解除テスト"""
+    manager, conn = nudge_manager
+
+    manager.active_locks[123] = {
+        "session_id": 5,
+        "end_time": datetime.now(UTC) + timedelta(minutes=30),
+        "coins_bet": 50,
+        "lock_type": "lock",
+        "unlock_level": 5,
+    }
+
+    broken_row = {
+        "id": 5,
+        "user_id": 123,
+        "state": "broken",
+        "started_at": datetime.now(UTC),
+        "ended_at": datetime.now(UTC),
+    }
+    conn.fetchrow.return_value = broken_row
+
+    result = await manager.penalty_unlock(123)
+
+    assert result.get("penalty_unlocked") is True
+    assert result["coins_lost"] == 50
+    assert result["penalty_rate"] == 0.20
+    assert 123 not in manager.active_locks
+
+
+@pytest.mark.asyncio
+async def test_penalty_unlock_wrong_level(nudge_manager):
+    """レベル5以外でのペナルティ解除エラー"""
+    manager, conn = nudge_manager
+
+    manager.active_locks[123] = {
+        "session_id": 6,
+        "end_time": datetime.now(UTC) + timedelta(minutes=30),
+        "coins_bet": 20,
+        "lock_type": "lock",
+        "unlock_level": 2,
+    }
+
+    result = await manager.penalty_unlock(123)
+    assert "error" in result
+
+    # クリーンアップ
+    manager.active_locks.pop(123, None)
+
+
+@pytest.mark.asyncio
+async def test_get_lock_status_with_unlock_level(nudge_manager):
+    """アンロックレベル付きステータス取得"""
+    manager, conn = nudge_manager
+
+    end_time = datetime.now(UTC) + timedelta(minutes=15)
+    manager.active_locks[123] = {
+        "session_id": 1,
+        "end_time": end_time,
+        "coins_bet": 30,
+        "lock_type": "lock",
+        "unlock_level": 3,
+    }
+
+    status = await manager.get_lock_status(123)
+
+    assert status is not None
+    assert status["unlock_level"] == 3
+
+    # クリーンアップ
+    manager.active_locks.pop(123, None)
+
+
+@pytest.mark.asyncio
+async def test_on_study_completed_no_lock(nudge_manager):
+    """ロックなしでの学習完了フック"""
+    manager, conn = nudge_manager
+    conn.fetchrow.return_value = None
+
+    code = await manager.on_study_completed(999)
+    assert code is None
+
+
+@pytest.mark.asyncio
+async def test_on_study_completed_wrong_level(nudge_manager):
+    """レベル4以外での学習完了フック"""
+    manager, conn = nudge_manager
+
+    manager.active_locks[123] = {
+        "session_id": 1,
+        "end_time": datetime.now(UTC) + timedelta(minutes=30),
+        "coins_bet": 0,
+        "lock_type": "lock",
+        "unlock_level": 2,
+    }
+
+    code = await manager.on_study_completed(123)
+    assert code is None
+
+    # クリーンアップ
+    manager.active_locks.pop(123, None)

@@ -8,7 +8,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from studybot.config.constants import COIN_REWARDS, COLORS, NUDGE_LEVELS
+from studybot.config.constants import COIN_REWARDS, COLORS, NUDGE_LEVELS, UNLOCK_LEVELS
 from studybot.managers.nudge_manager import NudgeManager
 from studybot.utils.embed_helper import error_embed, focus_embed, success_embed
 
@@ -34,6 +34,7 @@ class LockConfirmView(discord.ui.View):
         lock_type: str,
         duration: int,
         coins_bet: int = 0,
+        unlock_level: int = 1,
     ) -> None:
         super().__init__(timeout=60)
         self.manager = manager
@@ -42,6 +43,7 @@ class LockConfirmView(discord.ui.View):
         self.lock_type = lock_type
         self.duration = duration
         self.coins_bet = coins_bet
+        self.unlock_level = unlock_level
 
     @discord.ui.button(label="ロック開始", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -56,7 +58,11 @@ class LockConfirmView(discord.ui.View):
             result = await self.manager.start_shield(self.user_id, self.username, self.duration)
         else:
             result = await self.manager.start_lock(
-                self.user_id, self.username, self.duration, self.coins_bet
+                self.user_id,
+                self.username,
+                self.duration,
+                self.coins_bet,
+                self.unlock_level,
             )
 
         if "error" in result:
@@ -66,16 +72,49 @@ class LockConfirmView(discord.ui.View):
             )
             return
 
-        level_name = NUDGE_LEVELS[self.lock_type]["name"]
+        level_name = (
+            NUDGE_LEVELS[self.lock_type]["name"]
+            if self.lock_type in NUDGE_LEVELS
+            else "フォーカスロック"
+        )
         desc = f"**{level_name}**を開始しました！\n"
         desc += f"時間: **{self.duration}分**\n"
+        if self.unlock_level > 1:
+            ul = UNLOCK_LEVELS.get(self.unlock_level, {})
+            desc += f"アンロックレベル: **Lv{self.unlock_level} ({ul.get('name', '')})**\n"
         if self.coins_bet > 0:
             desc += f"ベットコイン: **{self.coins_bet}枚**\n"
+
+        # レベル2: 確認コードをDM送信
+        if self.unlock_level == 2 and result.get("confirmation_code"):
+            try:
+                user = interaction.user
+                await user.send(
+                    f"🔒 フォーカスロック確認コード: **{result['confirmation_code']}**\n"
+                    f"このコードは解除時に必要です（有効期限: 15分）"
+                )
+                desc += "\n確認コードをDMに送信しました。"
+            except discord.Forbidden:
+                desc += "\n⚠️ DMの送信に失敗しました。DM設定を確認してください。"
+
         desc += "\n集中して頑張りましょう！"
 
         embed = focus_embed("ロック開始", desc)
         self.stop()
         await interaction.response.edit_message(embed=embed, view=None)
+
+        # イベント発行: ロック開始
+        bot = interaction.client
+        if hasattr(bot, "event_publisher") and bot.event_publisher:
+            try:
+                await bot.event_publisher.emit_lock_start(
+                    user_id=self.user_id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=self.username,
+                    duration_minutes=self.duration,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
 
     @discord.ui.button(label="キャンセル", style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -130,6 +169,18 @@ class BreakConfirmView(discord.ui.View):
             embed=error_embed("ロック解除", desc),
             view=None,
         )
+
+        # イベント発行: ロック終了（手動解除）
+        bot = interaction.client
+        if hasattr(bot, "event_publisher") and bot.event_publisher:
+            try:
+                await bot.event_publisher.emit_lock_end(
+                    user_id=self.user_id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
 
     @discord.ui.button(label="キャンセル", style=discord.ButtonStyle.grey)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -206,7 +257,7 @@ class PhoneNudgeCog(commands.Cog):
         success = await self.manager.send_nudge(
             interaction.user.id,
             "test",
-            "📱 StudyBot テスト通知です！",
+            "StudyBot テスト通知です！",
         )
 
         if success:
@@ -230,7 +281,7 @@ class PhoneNudgeCog(commands.Cog):
         if not config:
             await interaction.response.send_message(
                 embed=discord.Embed(
-                    title="📱 通知設定",
+                    title="通知設定",
                     description="未設定です。`/nudge setup` で設定してください。",
                     color=COLORS["primary"],
                 ),
@@ -238,12 +289,12 @@ class PhoneNudgeCog(commands.Cog):
             )
             return
 
-        status = "✅ 有効" if config.get("enabled") else "❌ 無効"
+        status = "有効" if config.get("enabled") else "無効"
         url = config.get("webhook_url", "")
         masked_url = url[:30] + "..." if len(url) > 30 else url
 
         embed = discord.Embed(
-            title="📱 通知設定",
+            title="通知設定",
             color=COLORS["primary"],
         )
         embed.add_field(name="ステータス", value=status, inline=True)
@@ -254,12 +305,41 @@ class PhoneNudgeCog(commands.Cog):
         """他Cogから呼び出し用の通知メソッド"""
         await self.manager.send_nudge(user_id, event_type, message)
 
+    async def on_study_completed(self, user_id: int) -> None:
+        """学習完了時のフック（レベル4ロック用）"""
+        code = await self.manager.on_study_completed(user_id)
+        if code:
+            try:
+                user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
+                if user:
+                    await user.send(
+                        f"📚 学習完了！フォーカスロック解除コード: **{code}**\n（有効期限: 15分）"
+                    )
+            except Exception as e:
+                logger.warning("学習完了コード送信エラー (user=%d): %s", user_id, e)
+
     @nudge_group.command(name="lock", description="フォーカスロックを開始（コインベット可能）")
     @app_commands.describe(
         duration="ロック時間（分）",
         coins_bet="ベットするコイン数（任意、10〜100）",
+        unlock_level="アンロックレベル（1〜5）",
     )
-    async def nudge_lock(self, interaction: discord.Interaction, duration: int, coins_bet: int = 0):
+    @app_commands.choices(
+        unlock_level=[
+            app_commands.Choice(name="Lv1: タイマー完了", value=1),
+            app_commands.Choice(name="Lv2: 確認コード", value=2),
+            app_commands.Choice(name="Lv3: DMコード", value=3),
+            app_commands.Choice(name="Lv4: 学習完了コード", value=4),
+            app_commands.Choice(name="Lv5: ペナルティ解除", value=5),
+        ]
+    )
+    async def nudge_lock(
+        self,
+        interaction: discord.Interaction,
+        duration: int,
+        coins_bet: int = 0,
+        unlock_level: int = 1,
+    ):
         if duration <= 0:
             await interaction.response.send_message(
                 embed=error_embed("エラー", "ロック時間は1分以上を指定してください。"),
@@ -268,8 +348,11 @@ class PhoneNudgeCog(commands.Cog):
             return
 
         lock_config = NUDGE_LEVELS["lock"]
+        ul = UNLOCK_LEVELS.get(unlock_level, UNLOCK_LEVELS[1])
         desc = f"**{lock_config['name']}**を開始しますか？\n"
         desc += f"時間: **{duration}分**\n"
+        desc += f"アンロックレベル: **Lv{unlock_level} ({ul['name']})**\n"
+        desc += f"_{ul['description']}_\n"
         if coins_bet > 0:
             desc += f"ベットコイン: **{coins_bet}枚**\n"
             desc += "（途中解除するとベットコインを失います）\n"
@@ -285,6 +368,7 @@ class PhoneNudgeCog(commands.Cog):
             "lock",
             duration,
             coins_bet,
+            unlock_level,
         )
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -358,15 +442,143 @@ class PhoneNudgeCog(commands.Cog):
         level_name = NUDGE_LEVELS.get(lock_type, {}).get("name", "フォーカスロック")
         remaining_min = status["remaining_minutes"]
         remaining_sec = status["remaining_seconds"] % 60
+        unlock_level = status.get("unlock_level", 1)
+        ul = UNLOCK_LEVELS.get(unlock_level, UNLOCK_LEVELS[1])
 
         desc = f"**{level_name}** が有効です\n\n"
         desc += f"残り時間: **{remaining_min}分{remaining_sec}秒**\n"
+        desc += f"アンロックレベル: **Lv{unlock_level} ({ul['name']})**\n"
         if status.get("coins_bet", 0) > 0:
             desc += f"ベットコイン: **{status['coins_bet']}枚**\n"
 
         embed = focus_embed("ロックステータス", desc)
         embed.color = COLORS["focus"]
         await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @nudge_group.command(name="code", description="ロック解除コードを入力")
+    @app_commands.describe(code="解除コード")
+    async def nudge_code(self, interaction: discord.Interaction, code: str):
+        """コード入力でロック解除"""
+        result = await self.manager.verify_unlock_code(interaction.user.id, code)
+
+        if "error" in result:
+            await interaction.response.send_message(
+                embed=error_embed("コード検証エラー", result["error"]),
+                ephemeral=True,
+            )
+            return
+
+        desc = "コード検証成功！ロックを解除しました。\n"
+        coins_earned = result.get("coins_earned", 0)
+        coins_returned = result.get("coins_returned", 0)
+        if coins_earned > 0:
+            desc += f"獲得コイン: **{coins_earned}枚**\n"
+        if coins_returned > 0:
+            desc += f"ベット返還: **{coins_returned}枚**\n"
+
+        # コイン付与
+        total_coins = coins_earned + coins_returned
+        if total_coins > 0:
+            shop_cog = self.bot.get_cog("ShopCog")
+            if shop_cog:
+                try:
+                    await shop_cog.award_coins(
+                        interaction.user.id, "", total_coins, "フォーカスロック完了"
+                    )
+                except Exception as e:
+                    logger.warning("コイン付与エラー (user=%d): %s", interaction.user.id, e)
+
+        await interaction.response.send_message(
+            embed=success_embed("ロック解除", desc),
+            ephemeral=True,
+        )
+
+        # イベント発行: ロック終了（コード解除）
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_lock_end(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
+    @nudge_group.command(name="settings", description="デフォルトロック設定を変更")
+    @app_commands.describe(
+        unlock_level="デフォルトアンロックレベル（1〜5）",
+        duration="デフォルトロック時間（分）",
+        coin_bet="デフォルトベットコイン数",
+    )
+    async def nudge_settings(
+        self,
+        interaction: discord.Interaction,
+        unlock_level: int | None = None,
+        duration: int | None = None,
+        coin_bet: int | None = None,
+    ):
+        """デフォルトロック設定を表示/変更"""
+        settings = await self.manager.lock_settings_repo.get_settings(interaction.user.id)
+
+        if unlock_level is None and duration is None and coin_bet is None:
+            # 設定表示
+            if not settings:
+                desc = "デフォルト設定は未登録です。\n引数を指定して設定してください。"
+            else:
+                ul = UNLOCK_LEVELS.get(settings["default_unlock_level"], UNLOCK_LEVELS[1])
+                desc = (
+                    f"アンロックレベル: **Lv{settings['default_unlock_level']}"
+                    f" ({ul['name']})**\n"
+                    f"ロック時間: **{settings['default_duration']}分**\n"
+                    f"ベットコイン: **{settings['default_coin_bet']}枚**\n"
+                )
+                if settings.get("block_categories"):
+                    desc += f"ブロックカテゴリ: {', '.join(settings['block_categories'])}\n"
+            await interaction.response.send_message(
+                embed=focus_embed("ロック設定", desc),
+                ephemeral=True,
+            )
+            return
+
+        # 設定更新
+        current = settings or {
+            "default_unlock_level": 1,
+            "default_duration": 60,
+            "default_coin_bet": 0,
+            "block_categories": [],
+            "custom_blocked_urls": [],
+        }
+
+        new_level = unlock_level if unlock_level is not None else current["default_unlock_level"]
+        new_duration = duration if duration is not None else current["default_duration"]
+        new_bet = coin_bet if coin_bet is not None else current["default_coin_bet"]
+
+        if new_level < 1 or new_level > 5:
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "アンロックレベルは1〜5の範囲で指定してください。"),
+                ephemeral=True,
+            )
+            return
+
+        await self.manager.lock_settings_repo.upsert_settings(
+            user_id=interaction.user.id,
+            default_unlock_level=new_level,
+            default_duration=new_duration,
+            default_coin_bet=new_bet,
+            block_categories=current.get("block_categories", []),
+            custom_blocked_urls=current.get("custom_blocked_urls", []),
+        )
+
+        ul = UNLOCK_LEVELS.get(new_level, UNLOCK_LEVELS[1])
+        desc = (
+            f"アンロックレベル: **Lv{new_level} ({ul['name']})**\n"
+            f"ロック時間: **{new_duration}分**\n"
+            f"ベットコイン: **{new_bet}枚**\n"
+        )
+        await interaction.response.send_message(
+            embed=success_embed("ロック設定を更新", desc),
+            ephemeral=True,
+        )
 
     @tasks.loop(seconds=30)
     async def lock_check(self):
@@ -383,7 +595,10 @@ class PhoneNudgeCog(commands.Cog):
                         await self.manager.send_nudge(user_id, "shield_nudge", message)
                         info["last_nudge_time"] = now
 
-            # 期限切れロックの完了処理
+            # コードリクエストの処理
+            await self.manager.process_code_requests(self.bot)
+
+            # 期限切れロックの完了処理（レベル1のみ自動完了）
             completed = await self.manager.check_locks()
             for result in completed:
                 user_id = result.get("user_id")
@@ -399,9 +614,22 @@ class PhoneNudgeCog(commands.Cog):
                     shop_cog = self.bot.get_cog("ShopCog")
                     if shop_cog:
                         try:
-                            await shop_cog.add_coins(user_id, total_coins)
+                            await shop_cog.award_coins(
+                                user_id, "", total_coins, "フォーカスロック完了"
+                            )
                         except Exception as e:
-                            logger.error(f"コイン付与エラー (user={user_id}): {e}")
+                            logger.warning("コイン付与エラー (user=%d): %s", user_id, e)
+
+                # イベント発行: ロック終了（自動完了）
+                if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+                    try:
+                        await self.bot.event_publisher.emit_lock_end(
+                            user_id=user_id,
+                            guild_id=0,
+                            username="",
+                        )
+                    except Exception:
+                        logger.warning("イベント発行失敗", exc_info=True)
 
                 # 完了通知を送信
                 desc = "フォーカスロックが完了しました！\n"
@@ -411,7 +639,7 @@ class PhoneNudgeCog(commands.Cog):
                 await self.manager.send_nudge(user_id, "lock_complete", desc)
 
         except Exception as e:
-            logger.error(f"ロックチェックエラー: {e}")
+            logger.error("ロックチェックエラー: %s", e)
 
     @lock_check.before_loop
     async def before_lock_check(self):

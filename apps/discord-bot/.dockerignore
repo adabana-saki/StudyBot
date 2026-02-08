@@ -1,0 +1,39 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.env
+.env.*
+.venv
+venv
+
+# Testing & tooling
+.pytest_cache
+.ruff_cache
+.mypy_cache
+tests/
+coverage/
+
+# Node (in case of mixed environments)
+node_modules
+
+# Documentation
+*.md
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Editor
+.editorconfig
+.vscode
+.idea

@@ -168,6 +168,20 @@ class FlashcardRatingView(discord.ui.View):
                 embed.set_footer(text=f"{len(self.results)}枚のカードを復習しました")
                 await interaction.response.edit_message(embed=embed, view=None)
 
+                # イベント発行: フラッシュカード復習完了
+                bot = interaction.client
+                if hasattr(bot, "event_publisher") and bot.event_publisher:
+                    try:
+                        await bot.event_publisher.emit_flashcard_review(
+                            user_id=self.user_id,
+                            guild_id=getattr(interaction, "guild_id", 0) or 0,
+                            username=interaction.user.display_name,
+                            deck_name=self.cards[0].get("deck_name", "") if self.cards else "",
+                            cards_reviewed=len(self.results),
+                        )
+                    except Exception:
+                        logger.warning("イベント発行失敗", exc_info=True)
+
         return callback
 
 

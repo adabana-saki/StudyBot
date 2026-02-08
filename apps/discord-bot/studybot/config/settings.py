@@ -23,7 +23,10 @@ class Settings:
 
         # OpenAI
         self.OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-        self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4")
+        self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.OPENAI_MODEL_HEAVY: str = os.getenv(
+            "OPENAI_MODEL_HEAVY", "gpt-4o"
+        )
         self.AI_DAILY_LIMIT: int = int(os.getenv("AI_DAILY_LIMIT", "10"))
 
         # API / Web (Phase 2)
@@ -32,6 +35,9 @@ class Settings:
         self.DISCORD_CLIENT_SECRET: str = os.getenv("DISCORD_CLIENT_SECRET", "")
         self.API_BASE_URL: str = os.getenv("API_BASE_URL", "http://localhost:8000")
         self.WEB_BASE_URL: str = os.getenv("WEB_BASE_URL", "http://localhost:3000")
+
+        # Redis
+        self.REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
         # Logging
         self.LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

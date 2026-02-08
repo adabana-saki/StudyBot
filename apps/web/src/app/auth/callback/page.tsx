@@ -1,53 +1,81 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { setToken, setRefreshToken } from "@/lib/auth";
+import { fetchAPI } from "@/lib/api";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-export default function AuthCallbackPage() {
+interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+}
+
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
-    const refresh = searchParams.get("refresh");
+    const code = searchParams.get("code");
 
-    if (token && refresh) {
-      setToken(token);
-      setRefreshToken(refresh);
-      router.replace("/dashboard");
-    } else {
+    if (!code) {
       setError(
-        "認証に失敗しました。トークンが見つかりません。もう一度お試しください。"
+        "認証に失敗しました。認証コードが見つかりません。もう一度お試しください。"
       );
+      return;
     }
+
+    // 認証コードをJWTトークンに交換
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    fetch(`${API_URL}/api/auth/exchange`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error("認証コードの交換に失敗しました");
+        }
+        const data: TokenResponse = await res.json();
+        setToken(data.access_token);
+        setRefreshToken(data.refresh_token);
+        router.replace("/dashboard");
+      })
+      .catch(() => {
+        setError(
+          "認証に失敗しました。認証コードが無効か有効期限切れです。もう一度お試しください。"
+        );
+      });
   }, [searchParams, router]);
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-gray-800 rounded-xl p-8 border border-red-600/50 max-w-md w-full text-center">
-          <span className="text-4xl block mb-4">❌</span>
-          <h1 className="text-xl font-bold text-white mb-2">認証エラー</h1>
-          <p className="text-gray-400 mb-6">{error}</p>
-          <a
-            href="/"
-            className="inline-block px-6 py-3 bg-blurple hover:bg-blurple-dark text-white font-medium rounded-lg transition-colors"
-          >
-            トップに戻る
-          </a>
-        </div>
+        <Card className="max-w-md w-full border-destructive/50">
+          <CardContent className="pt-6 text-center">
+            <span className="text-4xl block mb-4">❌</span>
+            <h1 className="text-xl font-bold mb-2">認証エラー</h1>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <Button asChild>
+              <a href="/">トップに戻る</a>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
+  return <LoadingSpinner label="認証中..." />;
+}
+
+export default function AuthCallbackPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blurple mx-auto mb-4"></div>
-        <p className="text-gray-400">認証中...</p>
-      </div>
-    </div>
+    <Suspense fallback={<LoadingSpinner label="認証中..." />}>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

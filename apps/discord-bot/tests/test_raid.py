@@ -1,5 +1,6 @@
 """スタディレイドのテスト"""
 
+import asyncpg
 import pytest
 
 from studybot.config.constants import RAID_DEFAULTS
@@ -154,7 +155,7 @@ async def test_join_raid_already_joined(raid_manager):
 
     conn.execute.side_effect = [
         None,  # ensure_user
-        Exception("UNIQUE constraint"),  # add_participant fails
+        asyncpg.UniqueViolationError("UNIQUE constraint"),  # add_participant fails
     ]
     conn.fetchrow.return_value = {
         "id": 1,
@@ -324,9 +325,9 @@ async def test_get_active_raids(raid_manager):
             "ended_at": None,
             "created_at": None,
             "creator_name": "TestUser",
+            "participant_count": 3,
         }
     ]
-    conn.fetchval.return_value = 3  # participant count
 
     raids = await manager.get_active_raids(456)
     assert len(raids) == 1

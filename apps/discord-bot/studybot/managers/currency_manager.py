@@ -83,3 +83,22 @@ class CurrencyManager:
     async def get_inventory(self, user_id: int) -> list[dict]:
         """ユーザーのインベントリを取得"""
         return await self.repository.get_inventory(user_id)
+
+    async def equip_item(self, user_id: int, item_id: int) -> dict:
+        """アイテムを装備"""
+        inventory = await self.repository.get_inventory(user_id)
+        owned = [i for i in inventory if i["item_id"] == item_id]
+        if not owned:
+            return {"error": "このアイテムを持っていません。"}
+
+        item = owned[0]
+        await self.repository.equip_item(user_id, item_id)
+        return {"item": item}
+
+    async def get_user_preferences(self, user_id: int) -> dict | None:
+        """ユーザー設定を取得"""
+        return await self.repository.get_user_preferences(user_id)
+
+    async def update_user_preferences(self, user_id: int, **kwargs) -> dict:
+        """ユーザー設定を更新"""
+        return await self.repository.update_user_preferences(user_id, **kwargs)

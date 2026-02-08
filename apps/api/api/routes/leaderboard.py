@@ -28,6 +28,7 @@ async def get_leaderboard(
 
     async with pool.acquire() as conn:
         if category == "xp":
+            # Note: XP is global across all guilds (by design)
             rows = await conn.fetch(
                 """
                 SELECT ul.user_id, u.username, ul.xp as value, ul.level

@@ -204,16 +204,16 @@ class DatabaseManager:
                     duration_minutes INT NOT NULL,
                     max_participants INT DEFAULT 10,
                     state VARCHAR(20) DEFAULT 'recruiting',
-                    started_at TIMESTAMP,
-                    ended_at TIMESTAMP,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    started_at TIMESTAMPTZ,
+                    ended_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
                 );
 
                 CREATE TABLE IF NOT EXISTS raid_participants (
                     id SERIAL PRIMARY KEY,
-                    raid_id INT NOT NULL REFERENCES study_raids(id),
-                    user_id BIGINT NOT NULL REFERENCES users(user_id),
-                    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    raid_id INT NOT NULL REFERENCES study_raids(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    joined_at TIMESTAMPTZ DEFAULT NOW(),
                     completed BOOLEAN DEFAULT false,
                     UNIQUE(raid_id, user_id)
                 );
@@ -324,9 +324,80 @@ class DatabaseManager:
                     lock_type VARCHAR(20) NOT NULL,
                     duration_minutes INT NOT NULL,
                     coins_bet INT DEFAULT 0,
+                    unlock_level INT DEFAULT 1,
                     state VARCHAR(20) DEFAULT 'active',
                     started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     ended_at TIMESTAMP
+                );
+
+                -- Phase 4: ロック設定
+                CREATE TABLE IF NOT EXISTS user_lock_settings (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+                    default_unlock_level INT DEFAULT 1
+                        CHECK (default_unlock_level BETWEEN 1 AND 5),
+                    default_duration INT DEFAULT 60,
+                    default_coin_bet INT DEFAULT 0,
+                    block_categories TEXT[] DEFAULT '{}',
+                    custom_blocked_urls TEXT[] DEFAULT '{}',
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 4: アンロックコード
+                CREATE TABLE IF NOT EXISTS unlock_codes (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    session_id INT NOT NULL,
+                    code VARCHAR(20) NOT NULL,
+                    code_type VARCHAR(20) NOT NULL,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    used BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 4: コードリクエスト
+                CREATE TABLE IF NOT EXISTS code_requests (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    session_id INT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 3: VCセッション
+                CREATE TABLE IF NOT EXISTS vc_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    guild_id BIGINT NOT NULL,
+                    channel_id BIGINT NOT NULL,
+                    started_at TIMESTAMPTZ NOT NULL,
+                    ended_at TIMESTAMPTZ,
+                    duration_minutes INT,
+                    auto_logged BOOLEAN DEFAULT TRUE
+                );
+
+                -- Phase 3: サーバー設定
+                CREATE TABLE IF NOT EXISTS server_settings (
+                    guild_id BIGINT PRIMARY KEY,
+                    study_channels BIGINT[] DEFAULT '{}',
+                    vc_channels BIGINT[] DEFAULT '{}',
+                    admin_role_id BIGINT,
+                    nudge_enabled BOOLEAN DEFAULT TRUE,
+                    vc_tracking_enabled BOOLEAN DEFAULT TRUE,
+                    min_vc_minutes INT DEFAULT 5,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 3: ユーザー設定
+                CREATE TABLE IF NOT EXISTS user_preferences (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+                    display_name VARCHAR(100),
+                    bio TEXT DEFAULT '',
+                    timezone VARCHAR(50) DEFAULT 'Asia/Tokyo',
+                    daily_goal_minutes INT DEFAULT 60,
+                    notifications_enabled BOOLEAN DEFAULT TRUE,
+                    theme VARCHAR(20) DEFAULT 'dark',
+                    custom_title VARCHAR(100),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
                 );
 
                 -- Phase 2: Stream E - API認証
@@ -347,6 +418,211 @@ class DatabaseManager:
                     discord_refresh_token TEXT,
                     expires_at TIMESTAMP NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                -- デバイストークン
+                CREATE TABLE IF NOT EXISTS device_tokens (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    device_token TEXT NOT NULL,
+                    platform VARCHAR(10) NOT NULL
+                        CHECK (platform IN ('ios', 'android', 'web')),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, device_token)
+                );
+
+                -- 通知ログ
+                CREATE TABLE IF NOT EXISTS notification_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    type VARCHAR(50) NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT,
+                    data JSONB,
+                    sent_at TIMESTAMPTZ DEFAULT NOW(),
+                    read_at TIMESTAMPTZ
+                );
+
+                -- Phase 5: コホートチャレンジ
+                CREATE TABLE IF NOT EXISTS challenges (
+                    id SERIAL PRIMARY KEY,
+                    creator_id BIGINT NOT NULL REFERENCES users(user_id),
+                    guild_id BIGINT NOT NULL,
+                    name VARCHAR(200) NOT NULL,
+                    description TEXT DEFAULT '',
+                    goal_type VARCHAR(30) DEFAULT 'study_minutes',
+                    goal_target INT DEFAULT 0,
+                    duration_days INT NOT NULL
+                        CHECK (duration_days BETWEEN 3 AND 90),
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    channel_id BIGINT,
+                    xp_multiplier FLOAT DEFAULT 1.5,
+                    status VARCHAR(20) DEFAULT 'upcoming',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS challenge_participants (
+                    id SERIAL PRIMARY KEY,
+                    challenge_id INT NOT NULL
+                        REFERENCES challenges(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    progress INT DEFAULT 0,
+                    checkins INT DEFAULT 0,
+                    last_checkin_date DATE,
+                    completed BOOLEAN DEFAULT FALSE,
+                    joined_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(challenge_id, user_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS challenge_checkins (
+                    id SERIAL PRIMARY KEY,
+                    challenge_id INT NOT NULL
+                        REFERENCES challenges(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    checkin_date DATE NOT NULL,
+                    progress_delta INT DEFAULT 0,
+                    note TEXT DEFAULT '',
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(challenge_id, user_id, checkin_date)
+                );
+
+                -- Phase 5: アクティビティイベント
+                CREATE TABLE IF NOT EXISTS activity_events (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    guild_id BIGINT NOT NULL,
+                    event_type VARCHAR(50) NOT NULL,
+                    event_data JSONB DEFAULT '{}',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 5: バディマッチング
+                CREATE TABLE IF NOT EXISTS buddy_profiles (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id),
+                    subjects TEXT[] DEFAULT '{}',
+                    preferred_times TEXT[] DEFAULT '{}',
+                    study_style VARCHAR(30) DEFAULT 'focused',
+                    active BOOLEAN DEFAULT TRUE,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS buddy_matches (
+                    id SERIAL PRIMARY KEY,
+                    user_a BIGINT NOT NULL REFERENCES users(user_id),
+                    user_b BIGINT NOT NULL REFERENCES users(user_id),
+                    guild_id BIGINT NOT NULL,
+                    subject VARCHAR(200),
+                    compatibility_score FLOAT DEFAULT 0.0,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    matched_at TIMESTAMPTZ DEFAULT NOW(),
+                    ended_at TIMESTAMPTZ
+                );
+
+                CREATE TABLE IF NOT EXISTS buddy_sessions (
+                    id SERIAL PRIMARY KEY,
+                    match_id INT NOT NULL REFERENCES buddy_matches(id) ON DELETE CASCADE,
+                    vc_channel_id BIGINT,
+                    started_at TIMESTAMPTZ DEFAULT NOW(),
+                    ended_at TIMESTAMPTZ,
+                    total_minutes INT DEFAULT 0
+                );
+
+                -- Phase 5: AI週次インサイト
+                CREATE TABLE IF NOT EXISTS weekly_reports (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    week_start DATE NOT NULL,
+                    week_end DATE NOT NULL,
+                    raw_data JSONB DEFAULT '{}',
+                    insights JSONB DEFAULT '[]',
+                    summary TEXT DEFAULT '',
+                    generated_at TIMESTAMPTZ DEFAULT NOW(),
+                    sent_via_dm BOOLEAN DEFAULT FALSE,
+                    UNIQUE(user_id, week_start)
+                );
+
+                CREATE TABLE IF NOT EXISTS user_insights (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    insight_type VARCHAR(50) NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    body TEXT NOT NULL,
+                    data JSONB DEFAULT '{}',
+                    confidence FLOAT DEFAULT 0.5,
+                    active BOOLEAN DEFAULT TRUE,
+                    generated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 5: クロスプラットフォームセッション
+                CREATE TABLE IF NOT EXISTS active_cross_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    session_type VARCHAR(30) NOT NULL,
+                    source_platform VARCHAR(10) NOT NULL,
+                    session_ref_id INT,
+                    topic VARCHAR(200) DEFAULT '',
+                    duration_minutes INT NOT NULL,
+                    started_at TIMESTAMPTZ DEFAULT NOW(),
+                    end_time TIMESTAMPTZ NOT NULL,
+                    state VARCHAR(20) DEFAULT 'active',
+                    metadata JSONB DEFAULT '{}'
+                );
+
+                -- Phase 6: デイリークエスト
+                CREATE TABLE IF NOT EXISTS daily_quests (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    quest_type TEXT NOT NULL,
+                    target INT NOT NULL,
+                    progress INT DEFAULT 0,
+                    reward_xp INT NOT NULL,
+                    reward_coins INT NOT NULL,
+                    completed BOOLEAN DEFAULT FALSE,
+                    claimed BOOLEAN DEFAULT FALSE,
+                    quest_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 6: スタディチーム
+                CREATE TABLE IF NOT EXISTS study_teams (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    creator_id BIGINT NOT NULL,
+                    guild_id BIGINT NOT NULL,
+                    max_members INT DEFAULT 10,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS team_members (
+                    team_id INT NOT NULL REFERENCES study_teams(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    username TEXT NOT NULL,
+                    joined_at TIMESTAMPTZ DEFAULT NOW(),
+                    PRIMARY KEY (team_id, user_id)
+                );
+
+                -- ラーニングパス
+                CREATE TABLE IF NOT EXISTS learning_paths (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    path_id TEXT NOT NULL,
+                    current_milestone INT DEFAULT 0,
+                    completed BOOLEAN DEFAULT FALSE,
+                    enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ,
+                    UNIQUE(user_id, path_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS path_milestones (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    path_id TEXT NOT NULL,
+                    milestone_index INT NOT NULL,
+                    completed_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, path_id, milestone_index)
                 );
                 """
             )
@@ -396,6 +672,72 @@ class DatabaseManager:
                     ON phone_lock_sessions(user_id, state);
                 CREATE INDEX IF NOT EXISTS idx_sessions_token
                     ON sessions(session_token);
+                CREATE INDEX IF NOT EXISTS idx_device_tokens_user
+                    ON device_tokens(user_id);
+                CREATE INDEX IF NOT EXISTS idx_notification_logs_user
+                    ON notification_logs(user_id, sent_at DESC);
+
+                -- Phase 3 indexes
+                CREATE INDEX IF NOT EXISTS idx_vc_sessions_user
+                    ON vc_sessions(user_id, started_at);
+                CREATE INDEX IF NOT EXISTS idx_vc_sessions_guild
+                    ON vc_sessions(guild_id, started_at);
+
+                -- Phase 4 indexes
+                CREATE INDEX IF NOT EXISTS idx_unlock_codes_user
+                    ON unlock_codes(user_id, used, expires_at);
+                CREATE INDEX IF NOT EXISTS idx_code_requests_user
+                    ON code_requests(user_id, status);
+
+                -- Phase 5 indexes
+                CREATE INDEX IF NOT EXISTS idx_activity_guild
+                    ON activity_events(guild_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_buddy_matches_users
+                    ON buddy_matches(user_a, user_b, status);
+                CREATE INDEX IF NOT EXISTS idx_buddy_sessions_match
+                    ON buddy_sessions(match_id);
+
+                -- Phase 5: Challenge indexes
+                CREATE INDEX IF NOT EXISTS idx_challenges_guild
+                    ON challenges(guild_id, status);
+                CREATE INDEX IF NOT EXISTS idx_challenge_participants
+                    ON challenge_participants(challenge_id, user_id);
+                CREATE INDEX IF NOT EXISTS idx_challenge_checkins
+                    ON challenge_checkins(challenge_id, checkin_date);
+
+                -- Phase 5: Insights indexes
+                CREATE INDEX IF NOT EXISTS idx_weekly_reports_user
+                    ON weekly_reports(user_id, week_start DESC);
+                CREATE INDEX IF NOT EXISTS idx_user_insights
+                    ON user_insights(user_id, active, generated_at DESC);
+
+                -- Phase 5: Cross-platform session indexes
+                CREATE INDEX IF NOT EXISTS idx_cross_sessions
+                    ON active_cross_sessions(user_id, state) WHERE state = 'active';
+
+                -- Phase 6: Daily quest indexes
+                CREATE INDEX IF NOT EXISTS idx_daily_quests_user_date
+                    ON daily_quests(user_id, quest_date);
+
+                -- Phase 6: Study team indexes
+                CREATE INDEX IF NOT EXISTS idx_study_teams_guild
+                    ON study_teams(guild_id);
+                CREATE INDEX IF NOT EXISTS idx_team_members_user
+                    ON team_members(user_id);
+
+                -- Learning path indexes
+                CREATE INDEX IF NOT EXISTS idx_learning_paths_user
+                    ON learning_paths(user_id, path_id);
+                CREATE INDEX IF NOT EXISTS idx_path_milestones_user
+                    ON path_milestones(user_id, path_id);
+
+                -- Missing indexes
+                CREATE INDEX IF NOT EXISTS idx_phone_nudges_user
+                    ON phone_nudges(user_id);
+                CREATE INDEX IF NOT EXISTS idx_nudge_history_user
+                    ON nudge_history(user_id);
+                CREATE INDEX IF NOT EXISTS idx_study_raids_creator
+                    ON study_raids(creator_id);
                 """
             )
 
@@ -480,7 +822,22 @@ class DatabaseManager:
                      'theme', 500, 'rare', '💫'),
                     ('ストリークシールド',
                      'ストリークリセット防止(1回)',
-                     'boost', 800, 'epic', '🛡️')
+                     'boost', 800, 'epic', '🛡️'),
+                    ('学習マスター ロール',
+                     '特別な「学習マスター」ロールを取得',
+                     'role', 500, 'epic', '👑'),
+                    ('集中の達人 ロール',
+                     '特別な「集中の達人」ロールを取得',
+                     'role', 300, 'rare', '🎯'),
+                    ('XPブースト 1.5x (24h)',
+                     '24時間XP獲得量1.5倍ブースト',
+                     'boost', 200, 'uncommon', '🚀'),
+                    ('カスタム称号',
+                     '自分だけのカスタム称号を設定',
+                     'title', 150, 'uncommon', '🏷️'),
+                    ('プロフィールテーマ: ゴールド',
+                     'プロフィールをゴールドテーマに',
+                     'theme', 100, 'common', '✨')
                 ON CONFLICT DO NOTHING;
                 """
             )

@@ -216,6 +216,76 @@ class ShopCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
+    @shop_group.command(name="equip", description="アイテムを装備/使用")
+    @app_commands.describe(item_id="装備するアイテムのID")
+    async def shop_equip(self, interaction: discord.Interaction, item_id: int):
+        await interaction.response.defer(ephemeral=True)
+
+        result = await self.manager.equip_item(interaction.user.id, item_id)
+        if "error" in result:
+            await interaction.followup.send(
+                embed=error_embed("装備失敗", result["error"]),
+                ephemeral=True,
+            )
+            return
+
+        item = result["item"]
+
+        # ロールアイテムの場合、Discord ロールを付与
+        if item.get("category") == "role" and interaction.guild:
+            role_name = item["name"].replace(" ロール", "")
+            role = discord.utils.get(interaction.guild.roles, name=role_name)
+            if not role:
+                # ロールを作成
+                try:
+                    role = await interaction.guild.create_role(
+                        name=role_name,
+                        color=discord.Color.gold(),
+                        reason=f"StudyBot ショップアイテム: {item['name']}",
+                    )
+                except discord.Forbidden:
+                    pass
+            if role:
+                try:
+                    await interaction.user.add_roles(role, reason="ショップアイテム使用")
+                except discord.Forbidden:
+                    await interaction.followup.send(
+                        embed=error_embed("ロール付与失敗", "Botにロール管理権限がありません。"),
+                        ephemeral=True,
+                    )
+                    return
+
+        embed = success_embed(
+            "装備完了",
+            f"{item['emoji']} **{item['name']}** を装備しました！",
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @shop_group.command(name="roles", description="取得可能な特別ロール一覧")
+    async def shop_roles(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+
+        items = await self.manager.repository.get_shop_items(category="role")
+
+        if not items:
+            await interaction.followup.send(
+                embed=coin_embed("特別ロール", "取得可能なロールアイテムはありません。"),
+                ephemeral=True,
+            )
+            return
+
+        lines = []
+        for item in items:
+            rarity = RARITY_LABELS.get(item["rarity"], item["rarity"])
+            lines.append(
+                f"{item['emoji']} **{item['name']}** — {item['price']:,} 🪙\n"
+                f"　{rarity} | ID: `{item['id']}`\n"
+                f"　_{item['description']}_"
+            )
+
+        embed = coin_embed("特別ロール一覧", "\n\n".join(lines))
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
     async def award_coins(self, user_id: int, username: str, amount: int, reason: str) -> dict:
         """他Cogからのコイン付与（外部API）"""
         return await self.manager.award_coins(user_id, username, amount, reason)

@@ -81,6 +81,31 @@ class FocusCog(commands.Cog):
 
         await interaction.followup.send(embed=embed)
 
+        # イベント発行: フォーカス開始
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_focus_start(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                    duration_minutes=duration,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
+        # セッション同期
+        if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+            try:
+                await self.bot.session_sync.register_session(
+                    user_id=interaction.user.id,
+                    username=interaction.user.display_name,
+                    session_type="focus",
+                    source="discord",
+                    duration_minutes=duration,
+                )
+            except Exception:
+                logger.warning("セッション同期失敗", exc_info=True)
+
     @focus_group.command(name="whitelist", description="フォーカス中に許可するチャンネルを追加")
     @app_commands.describe(channel="許可するテキストチャンネル")
     async def focus_whitelist(
@@ -132,11 +157,12 @@ class FocusCog(commands.Cog):
             embed = success_embed("フォーカス完了！", description)
 
             # コイン付与
-            currency_cog = self.bot.get_cog("CurrencyCog")
-            if currency_cog:
+            shop_cog = self.bot.get_cog("ShopCog")
+            if shop_cog:
                 try:
-                    await currency_cog.add_coins(
+                    await shop_cog.award_coins(
                         interaction.user.id,
+                        interaction.user.display_name,
                         COIN_REWARDS["focus_complete"],
                         "フォーカスセッション完了",
                     )
@@ -158,6 +184,25 @@ class FocusCog(commands.Cog):
 
         embed.set_footer(text=interaction.user.display_name)
         await interaction.response.send_message(embed=embed)
+
+        # イベント発行: フォーカス終了
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_focus_end(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                    duration_minutes=result.get("duration_actual", 0),
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
+        # セッション同期終了
+        if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+            try:
+                await self.bot.session_sync.end_session(interaction.user.id)
+            except Exception:
+                logger.warning("セッション同期終了失敗", exc_info=True)
 
     @focus_group.command(name="status", description="フォーカスの状態を確認")
     async def focus_status(self, interaction: discord.Interaction):
@@ -226,11 +271,12 @@ class FocusCog(commands.Cog):
 
                 # コイン付与
                 coin_text = ""
-                currency_cog = self.bot.get_cog("CurrencyCog")
-                if currency_cog:
+                shop_cog = self.bot.get_cog("ShopCog")
+                if shop_cog:
                     try:
-                        await currency_cog.add_coins(
+                        await shop_cog.award_coins(
                             user_id,
+                            "",
                             COIN_REWARDS["focus_complete"],
                             "フォーカスセッション完了",
                         )
@@ -240,6 +286,25 @@ class FocusCog(commands.Cog):
 
                 if coin_text:
                     embed.add_field(name="報酬", value=coin_text, inline=False)
+
+                # イベント発行: フォーカス終了（自然完了）
+                if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+                    try:
+                        await self.bot.event_publisher.emit_focus_end(
+                            user_id=user_id,
+                            guild_id=guild_id or 0,
+                            username=member.display_name,
+                            duration_minutes=duration,
+                        )
+                    except Exception:
+                        logger.warning("イベント発行失敗", exc_info=True)
+
+                # セッション同期終了
+                if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+                    try:
+                        await self.bot.session_sync.end_session(user_id)
+                    except Exception:
+                        logger.warning("セッション同期終了失敗", exc_info=True)
 
                 # DMで通知を試みる
                 try:

@@ -1,0 +1,124 @@
+version: 2
+updates:
+  # -------------------------------------------------------------------------
+  # Python (pip) - Discord Bot
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/apps/discord-bot"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "python"
+      - "bot"
+    commit-message:
+      prefix: "chore(deps):"
+    open-pull-requests-limit: 10
+
+  # -------------------------------------------------------------------------
+  # Python (pip) - API
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "pip"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "python"
+      - "api"
+    commit-message:
+      prefix: "chore(deps):"
+    open-pull-requests-limit: 10
+
+  # -------------------------------------------------------------------------
+  # npm - Web App
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "web"
+    commit-message:
+      prefix: "chore(deps):"
+    open-pull-requests-limit: 10
+
+  # -------------------------------------------------------------------------
+  # Docker - Discord Bot
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/apps/discord-bot"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "bot"
+    commit-message:
+      prefix: "chore(deps):"
+
+  # -------------------------------------------------------------------------
+  # Docker - API
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "api"
+    commit-message:
+      prefix: "chore(deps):"
+
+  # -------------------------------------------------------------------------
+  # Docker - Web App
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "web"
+    commit-message:
+      prefix: "chore(deps):"
+
+  # -------------------------------------------------------------------------
+  # Docker - Mobile App
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "docker"
+    directory: "/apps/mobile-app"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "docker"
+      - "mobile"
+    commit-message:
+      prefix: "chore(deps):"
+
+  # -------------------------------------------------------------------------
+  # GitHub Actions
+  # -------------------------------------------------------------------------
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    labels:
+      - "dependencies"
+      - "ci"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(deps):"

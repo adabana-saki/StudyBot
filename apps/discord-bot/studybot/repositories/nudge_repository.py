@@ -61,21 +61,28 @@ class NudgeRepository(BaseRepository):
             )
 
     async def create_lock_session(
-        self, user_id: int, lock_type: str, duration_minutes: int, coins_bet: int = 0
+        self,
+        user_id: int,
+        lock_type: str,
+        duration_minutes: int,
+        coins_bet: int = 0,
+        unlock_level: int = 1,
     ) -> dict:
         """ロックセッションを作成"""
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
                 INSERT INTO phone_lock_sessions
-                    (user_id, lock_type, duration_minutes, coins_bet, state, started_at)
-                VALUES ($1, $2, $3, $4, 'active', NOW())
+                    (user_id, lock_type, duration_minutes, coins_bet,
+                     unlock_level, state, started_at)
+                VALUES ($1, $2, $3, $4, $5, 'active', NOW())
                 RETURNING *
                 """,
                 user_id,
                 lock_type,
                 duration_minutes,
                 coins_bet,
+                unlock_level,
             )
         return dict(row)
 

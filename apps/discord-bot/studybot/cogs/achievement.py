@@ -153,6 +153,19 @@ class AchievementCog(commands.Cog):
 
             await channel.send(f"<@{user_id}>", embed=embed)
 
+            # イベント発行: 実績解放
+            if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+                try:
+                    await self.bot.event_publisher.emit_achievement_unlock(
+                        user_id=user_id,
+                        guild_id=0,
+                        username="",
+                        achievement_name=ach.get("name", ""),
+                        achievement_emoji=ach.get("emoji", ""),
+                    )
+                except Exception:
+                    logger.warning("イベント発行失敗", exc_info=True)
+
 
 async def setup(bot: commands.Bot):
     db_pool = getattr(bot, "db_pool", None)

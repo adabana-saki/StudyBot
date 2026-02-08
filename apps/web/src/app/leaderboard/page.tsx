@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 import { getLeaderboard, LeaderboardEntry } from "@/lib/api";
 import LeaderboardTable from "@/components/LeaderboardTable";
+import PageHeader from "@/components/PageHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const categories = [
   { value: "xp", label: "XP" },
@@ -18,7 +22,7 @@ const periods = [
   { value: "all_time", label: "全期間" },
 ];
 
-export default function LeaderboardPage() {
+function LeaderboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -60,58 +64,54 @@ export default function LeaderboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">リーダーボード</h1>
+      <PageHeader title="リーダーボード" />
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         {/* Category Tabs */}
-        <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
-          {categories.map((cat) => (
-            <button
-              key={cat.value}
-              onClick={() => setCategory(cat.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                category === cat.value
-                  ? "bg-blurple text-white"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={category} onValueChange={setCategory}>
+          <TabsList>
+            {categories.map((cat) => (
+              <TabsTrigger key={cat.value} value={cat.value}>
+                {cat.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* Period Selector */}
-        <div className="flex bg-gray-800 rounded-lg p-1 border border-gray-700">
-          {periods.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setPeriod(p.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                period === p.value
-                  ? "bg-blurple text-white"
-                  : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        <Tabs value={period} onValueChange={setPeriod}>
+          <TabsList>
+            {periods.map((p) => (
+              <TabsTrigger key={p.value} value={p.value}>
+                {p.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       {/* Content */}
       {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blurple"></div>
-        </div>
+        <LoadingSpinner label="データを読み込み中..." />
       ) : error ? (
-        <div className="bg-gray-800 rounded-xl p-8 border border-red-600/50 text-center">
-          <span className="text-4xl block mb-4">⚠️</span>
-          <p className="text-gray-400">{error}</p>
-        </div>
+        <Card className="border-destructive/50">
+          <CardContent className="p-8 text-center">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
       ) : (
         <LeaderboardTable entries={entries} />
       )}
     </div>
+  );
+}
+
+export default function LeaderboardPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner label="読み込み中..." />}>
+      <LeaderboardContent />
+    </Suspense>
   );
 }

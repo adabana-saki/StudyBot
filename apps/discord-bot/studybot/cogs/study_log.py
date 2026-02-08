@@ -61,10 +61,34 @@ class StudyLogCog(commands.Cog):
         embed.set_footer(text=interaction.user.display_name)
         await interaction.followup.send(embed=embed)
 
+        # イベント発行: 学習ログ
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_study_log(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    topic=topic,
+                    username=interaction.user.display_name,
+                    duration_minutes=duration,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
         # XP付与
         gamification = self.bot.get_cog("GamificationCog")
         if gamification:
-            await gamification.award_study_log_xp(interaction.user.id, interaction.channel)
+            try:
+                await gamification.award_study_log_xp(interaction.user.id, interaction.channel)
+            except Exception:
+                logger.warning("学習ログのXP付与に失敗", exc_info=True)
+
+        # フォーカスロック連携（レベル4: 学習完了コード）
+        nudge_cog = self.bot.get_cog("PhoneNudgeCog")
+        if nudge_cog:
+            try:
+                await nudge_cog.on_study_completed(interaction.user.id)
+            except Exception:
+                logger.warning("学習完了フック失敗", exc_info=True)
 
     @study_group.command(name="stats", description="学習統計を表示")
     @app_commands.describe(period="集計期間")

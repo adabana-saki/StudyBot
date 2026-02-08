@@ -224,12 +224,27 @@ class TodoCog(commands.Cog):
         embed = success_embed("タスク完了！", f"**{todo['title']}** を完了しました🎉")
         await interaction.followup.send(embed=embed)
 
+        # イベント発行: タスク完了
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_todo_complete(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                    title=todo["title"],
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
         # XP付与
         gamification = self.bot.get_cog("GamificationCog")
         if gamification:
-            await gamification.award_task_xp(
-                interaction.user.id, todo["priority"], interaction.channel
-            )
+            try:
+                await gamification.award_task_xp(
+                    interaction.user.id, todo["priority"], interaction.channel
+                )
+            except Exception:
+                logger.warning("タスク完了のXP付与に失敗", exc_info=True)
 
     @todo_group.command(name="delete", description="タスクを削除")
     @app_commands.describe(task_id="タスクID")
@@ -250,23 +265,26 @@ class TodoCog(commands.Cog):
     @tasks.loop(hours=1)
     async def deadline_check(self):
         """1時間ごとに期限切れタスクをチェック"""
-        for guild in self.bot.guilds:
-            upcoming = await self.manager.get_upcoming(guild.id, hours=2)
-            for todo in upcoming:
-                user = self.bot.get_user(todo["user_id"])
-                if user:
-                    try:
-                        embed = discord.Embed(
-                            title="⏰ タスク期限アラート",
-                            description=(
-                                f"**{todo['title']}** の期限が近づいています！\n"
-                                f"期限: {todo['deadline'].strftime('%Y/%m/%d %H:%M')}"
-                            ),
-                            color=COLORS["warning"],
-                        )
-                        await user.send(embed=embed)
-                    except discord.Forbidden:
-                        pass
+        try:
+            for guild in self.bot.guilds:
+                upcoming = await self.manager.get_upcoming(guild.id, hours=2)
+                for todo in upcoming:
+                    user = self.bot.get_user(todo["user_id"])
+                    if user:
+                        try:
+                            embed = discord.Embed(
+                                title="⏰ タスク期限アラート",
+                                description=(
+                                    f"**{todo['title']}** の期限が近づいています！\n"
+                                    f"期限: {todo['deadline'].strftime('%Y/%m/%d %H:%M')}"
+                                ),
+                                color=COLORS["warning"],
+                            )
+                            await user.send(embed=embed)
+                        except discord.Forbidden:
+                            pass
+        except Exception:
+            logger.error("タスク期限チェック中にエラー", exc_info=True)
 
     @deadline_check.before_loop
     async def before_deadline_check(self):

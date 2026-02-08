@@ -116,6 +116,80 @@ class CurrencyRepository(BaseRepository):
             )
         return [dict(row) for row in rows]
 
+    async def equip_item(self, user_id: int, item_id: int) -> None:
+        """アイテムを装備（同カテゴリの他アイテムは解除）"""
+        async with self.db_pool.acquire() as conn:
+            async with conn.transaction():
+                # アイテムのカテゴリを取得
+                category = await conn.fetchval(
+                    "SELECT category FROM shop_items WHERE id = $1", item_id
+                )
+                if category is None:
+                    return
+                # 同カテゴリの他アイテムを解除
+                await conn.execute(
+                    """
+                    UPDATE user_inventory ui
+                    SET equipped = false
+                    FROM shop_items si
+                    WHERE ui.item_id = si.id
+                      AND ui.user_id = $1
+                      AND si.category = $2
+                    """,
+                    user_id,
+                    category,
+                )
+                # 指定アイテムを装備
+                await conn.execute(
+                    """
+                    UPDATE user_inventory
+                    SET equipped = true
+                    WHERE user_id = $1 AND item_id = $2
+                    """,
+                    user_id,
+                    item_id,
+                )
+
+    async def get_user_preferences(self, user_id: int) -> dict | None:
+        """ユーザー設定を取得"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM user_preferences WHERE user_id = $1",
+                user_id,
+            )
+        return dict(row) if row else None
+
+    async def update_user_preferences(self, user_id: int, **kwargs) -> dict:
+        """ユーザー設定を更新"""
+        async with self.db_pool.acquire() as conn:
+            # 確保
+            await conn.execute(
+                """
+                INSERT INTO user_preferences (user_id)
+                VALUES ($1)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                user_id,
+            )
+            # 更新
+            sets = []
+            params = [user_id]
+            idx = 2
+            for key, value in kwargs.items():
+                sets.append(f"{key} = ${idx}")
+                params.append(value)
+                idx += 1
+            if sets:
+                sets.append(f"updated_at = ${idx}")
+                params.append(datetime.now(UTC))
+                query = (
+                    f"UPDATE user_preferences SET {', '.join(sets)} WHERE user_id = $1 RETURNING *"
+                )
+                row = await conn.fetchrow(query, *params)
+                return dict(row) if row else {}
+            row = await conn.fetchrow("SELECT * FROM user_preferences WHERE user_id = $1", user_id)
+            return dict(row) if row else {}
+
     async def purchase_item(self, user_id: int, item_id: int, price: int) -> bool:
         """アイテムを購入（トランザクション）"""
         async with self.db_pool.acquire() as conn:

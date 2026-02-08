@@ -8,18 +8,27 @@ import {
   getProfile,
   getStudyStats,
   getDailyStudy,
+  getActiveSessions,
   UserProfile,
   StudyStats,
   DailyStudy,
+  ActiveSession,
 } from "@/lib/api";
+import ActiveSessionCard from "@/components/ActiveSessionCard";
 import StatsCard from "@/components/StatsCard";
 import StudyChart from "@/components/StudyChart";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import PageHeader from "@/components/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [studyStats, setStudyStats] = useState<StudyStats | null>(null);
   const [dailyStudy, setDailyStudy] = useState<DailyStudy[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +48,8 @@ export default function DashboardPage() {
         setProfile(profileData);
         setStudyStats(statsData);
         setDailyStudy(dailyData);
+        const sessionsData = await getActiveSessions().catch(() => []);
+        setActiveSessions(sessionsData);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "データの取得に失敗しました"
@@ -52,24 +63,19 @@ export default function DashboardPage() {
   }, [router]);
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blurple mx-auto mb-4"></div>
-          <p className="text-gray-400">読み込み中...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner label="読み込み中..." />;
   }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-gray-800 rounded-xl p-8 border border-red-600/50 max-w-md w-full text-center">
-          <span className="text-4xl block mb-4">⚠️</span>
-          <h1 className="text-xl font-bold text-white mb-2">エラー</h1>
-          <p className="text-gray-400">{error}</p>
-        </div>
+        <Card className="max-w-md w-full border-destructive/50">
+          <CardContent className="pt-6 text-center">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <h1 className="text-xl font-bold mb-2">エラー</h1>
+            <p className="text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -77,59 +83,61 @@ export default function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Welcome Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white">
-          おかえりなさい{profile?.display_name ? `、${profile.display_name}` : ""}さん
-        </h1>
-        <p className="text-gray-400 mt-1">
-          今日も頑張りましょう！
-        </p>
-      </div>
+      <PageHeader
+        title={`おかえりなさい${profile?.display_name ? `、${profile.display_name}` : ""}さん`}
+        description="今日も頑張りましょう！"
+      />
+
+      {/* Active Sessions */}
+      {activeSessions.length > 0 && (
+        <div className="mb-6 space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">アクティブセッション</h3>
+          {activeSessions.map((s) => (
+            <ActiveSessionCard key={s.id} session={s} />
+          ))}
+        </div>
+      )}
 
       {/* Profile Summary */}
       {profile && (
-        <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 mb-8">
-          <div className="flex items-center space-x-4">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url}
-                alt={profile.display_name}
-                className="w-16 h-16 rounded-full border-2 border-blurple"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-blurple flex items-center justify-center text-2xl font-bold text-white">
-                {profile.display_name.charAt(0)}
-              </div>
-            )}
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                {profile.display_name}
-              </h2>
-              <div className="flex items-center space-x-4 mt-1">
-                <span className="text-sm text-blurple font-medium">
-                  Lv.{profile.level}
-                </span>
-                <span className="text-sm text-gray-400">
-                  ランク #{profile.rank}
-                </span>
-              </div>
-              {/* XP Progress Bar */}
-              <div className="mt-2 w-64">
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-blurple h-2 rounded-full transition-all"
-                    style={{
-                      width: `${(profile.xp % 1000) / 10}%`,
-                    }}
-                  />
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-4">
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={profile.display_name}
+                  className="w-16 h-16 rounded-full border-2 border-primary"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
+                  {profile.display_name.charAt(0)}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {profile.xp.toLocaleString()} XP
-                </p>
+              )}
+              <div>
+                <h2 className="text-xl font-bold">
+                  {profile.display_name}
+                </h2>
+                <div className="flex items-center space-x-3 mt-1">
+                  <Badge>Lv.{profile.level}</Badge>
+                  <span className="text-sm text-muted-foreground">
+                    ランク #{profile.rank}
+                  </span>
+                </div>
+                {/* XP Progress Bar */}
+                <div className="mt-2 w-64">
+                  <Progress
+                    value={(profile.xp % 1000) / 10}
+                    className="h-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {profile.xp.toLocaleString()} XP
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Stats Cards */}
@@ -175,41 +183,44 @@ export default function DashboardPage() {
 
       {/* Quick Links */}
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link
-          href="/leaderboard"
-          className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-blurple/50 transition-colors group"
-        >
-          <span className="text-2xl block mb-2">🏆</span>
-          <h3 className="font-semibold text-white group-hover:text-blurple transition-colors">
-            リーダーボード
-          </h3>
-          <p className="text-sm text-gray-400 mt-1">
-            サーバーランキングを確認
-          </p>
+        <Link href="/leaderboard">
+          <Card className="hover:border-primary/50 transition-colors group h-full">
+            <CardContent className="pt-6">
+              <span className="text-2xl block mb-2">🏆</span>
+              <h3 className="font-semibold group-hover:text-primary transition-colors">
+                リーダーボード
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                サーバーランキングを確認
+              </p>
+            </CardContent>
+          </Card>
         </Link>
-        <Link
-          href="/achievements"
-          className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-blurple/50 transition-colors group"
-        >
-          <span className="text-2xl block mb-2">🎖️</span>
-          <h3 className="font-semibold text-white group-hover:text-blurple transition-colors">
-            実績
-          </h3>
-          <p className="text-sm text-gray-400 mt-1">
-            実績の進捗を確認
-          </p>
+        <Link href="/achievements">
+          <Card className="hover:border-primary/50 transition-colors group h-full">
+            <CardContent className="pt-6">
+              <span className="text-2xl block mb-2">🎖️</span>
+              <h3 className="font-semibold group-hover:text-primary transition-colors">
+                実績
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                実績の進捗を確認
+              </p>
+            </CardContent>
+          </Card>
         </Link>
-        <Link
-          href="/flashcards"
-          className="bg-gray-800 rounded-xl p-6 border border-gray-700 hover:border-blurple/50 transition-colors group"
-        >
-          <span className="text-2xl block mb-2">🃏</span>
-          <h3 className="font-semibold text-white group-hover:text-blurple transition-colors">
-            フラッシュカード
-          </h3>
-          <p className="text-sm text-gray-400 mt-1">
-            カードを復習する
-          </p>
+        <Link href="/flashcards">
+          <Card className="hover:border-primary/50 transition-colors group h-full">
+            <CardContent className="pt-6">
+              <span className="text-2xl block mb-2">🃏</span>
+              <h3 className="font-semibold group-hover:text-primary transition-colors">
+                フラッシュカード
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                カードを復習する
+              </p>
+            </CardContent>
+          </Card>
         </Link>
       </div>
     </div>

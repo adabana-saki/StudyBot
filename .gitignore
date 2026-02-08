@@ -57,3 +57,4 @@ htmlcov/
 node_modules/
 .next/
 out/
+nul

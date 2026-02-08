@@ -8,6 +8,7 @@ import re
 
 from studybot.config.settings import settings
 from studybot.repositories.ai_doc_repository import AIDocRepository
+from studybot.services.openai_service import call_openai
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +59,7 @@ class AIDocManager:
 
         # OpenAI APIで要約生成
         prompt = DETAIL_PROMPTS.get(detail_level, DETAIL_PROMPTS["medium"])
-        summary = await self._call_openai(f"{prompt}\n\n{text[:8000]}")
+        summary = await call_openai(f"{prompt}\n\n{text[:8000]}", max_tokens=1024)
         if not summary:
             return {"error": "AI要約の生成に失敗しました。"}
 
@@ -90,7 +91,7 @@ class AIDocManager:
         if cached:
             return {"keypoints": cached, "cached": True}
 
-        keypoints = await self._call_openai(f"{KEYPOINT_PROMPT}\n\n{text[:8000]}")
+        keypoints = await call_openai(f"{KEYPOINT_PROMPT}\n\n{text[:8000]}", max_tokens=800)
         if not keypoints:
             return {"error": "キーポイント抽出に失敗しました。"}
 
@@ -157,7 +158,7 @@ class AIDocManager:
             f"\n\n{text[:8000]}"
         )
 
-        response = await self._call_openai(prompt)
+        response = await call_openai(prompt, max_tokens=1500)
         if not response:
             return {"error": "クイズの生成に失敗しました。"}
 
@@ -196,7 +197,7 @@ class AIDocManager:
             f"質問: {question}"
         )
 
-        answer = await self._call_openai(prompt)
+        answer = await call_openai(prompt, max_tokens=1024)
         if not answer:
             return {"error": "回答の生成に失敗しました。"}
 
@@ -220,32 +221,9 @@ class AIDocManager:
             "必要に応じて具体例も含めてください。"
         )
 
-        explanation = await self._call_openai(prompt)
+        explanation = await call_openai(prompt, max_tokens=1500)
         if not explanation:
             return {"error": "説明の生成に失敗しました。"}
 
         return {"explanation": explanation}
 
-    async def _call_openai(self, prompt: str) -> str | None:
-        """OpenAI APIを呼び出し"""
-        if not settings.OPENAI_API_KEY:
-            logger.error("OPENAI_API_KEY が設定されていません")
-            return None
-
-        try:
-            import openai
-
-            client = openai.AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
-            response = await client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": "あなたは優秀な学習アシスタントです。"},
-                    {"role": "user", "content": prompt},
-                ],
-                max_tokens=2000,
-                temperature=0.3,
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            logger.error(f"OpenAI API エラー: {e}")
-            return None

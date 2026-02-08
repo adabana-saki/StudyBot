@@ -1,0 +1,44 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Dependencies (reinstalled in Docker)
+node_modules
+
+# Next.js build output (rebuilt in Docker)
+.next
+out
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+
+# Testing & tooling
+coverage
+.turbo
+__pycache__
+
+# Documentation
+*.md
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*.yml
+
+# Editor
+.editorconfig
+.vscode
+.idea
+
+# Tests
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx

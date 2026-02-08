@@ -3,6 +3,8 @@
 import logging
 from datetime import UTC, datetime
 
+import asyncpg
+
 from studybot.repositories.base import BaseRepository
 
 logger = logging.getLogger(__name__)
@@ -54,8 +56,7 @@ class RaidRepository(BaseRepository):
                     datetime.now(UTC),
                 )
                 return True
-            except Exception:
-                # UNIQUE制約違反 = 既に参加済み
+            except asyncpg.UniqueViolationError:
                 return False
 
     async def remove_participant(self, raid_id: int, user_id: int) -> bool:
@@ -77,6 +78,23 @@ class RaidRepository(BaseRepository):
             rows = await conn.fetch(
                 """
                 SELECT sr.*, u.username as creator_name
+                FROM study_raids sr
+                JOIN users u ON u.user_id = sr.creator_id
+                WHERE sr.guild_id = $1 AND sr.state IN ('recruiting', 'active')
+                ORDER BY sr.created_at DESC
+                """,
+                guild_id,
+            )
+        return [dict(row) for row in rows]
+
+    async def get_active_raids_with_counts(self, guild_id: int) -> list[dict]:
+        """ギルドのアクティブなレイドを参加者数付きで一括取得（N+1解消）"""
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT sr.*, u.username as creator_name,
+                       (SELECT COUNT(*) FROM raid_participants rp
+                        WHERE rp.raid_id = sr.id) AS participant_count
                 FROM study_raids sr
                 JOIN users u ON u.user_id = sr.creator_id
                 WHERE sr.guild_id = $1 AND sr.state IN ('recruiting', 'active')

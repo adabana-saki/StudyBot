@@ -1,5 +1,6 @@
 """スタディレイド ビジネスロジック"""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
@@ -16,6 +17,7 @@ class RaidManager:
         self.repository = RaidRepository(db_pool)
         # メモリ内レイド状態 (raid_id -> timer info)
         self.active_raids: dict[int, dict] = {}
+        self._lock = asyncio.Lock()
 
     async def create_raid(
         self,
@@ -91,60 +93,59 @@ class RaidManager:
 
     async def start_raid(self, raid_id: int) -> dict:
         """レイドを開始"""
-        raid = await self.repository.get_raid(raid_id)
-        if not raid:
-            return {"error": "レイドが見つかりません"}
+        async with self._lock:
+            raid = await self.repository.get_raid(raid_id)
+            if not raid:
+                return {"error": "レイドが見つかりません"}
 
-        if raid["state"] != "recruiting":
-            return {"error": "このレイドは開始できません"}
+            if raid["state"] != "recruiting":
+                return {"error": "このレイドは開始できません"}
 
-        await self.repository.start_raid(raid_id)
+            await self.repository.start_raid(raid_id)
 
-        # メモリ内タイマー設定
-        now = datetime.now(UTC)
-        self.active_raids[raid_id] = {
-            "raid_id": raid_id,
-            "started_at": now,
-            "duration_minutes": raid["duration_minutes"],
-            "channel_id": raid["channel_id"],
-            "guild_id": raid["guild_id"],
-            "topic": raid["topic"],
-            "creator_id": raid["creator_id"],
-        }
+            # メモリ内タイマー設定
+            now = datetime.now(UTC)
+            self.active_raids[raid_id] = {
+                "raid_id": raid_id,
+                "started_at": now,
+                "duration_minutes": raid["duration_minutes"],
+                "channel_id": raid["channel_id"],
+                "guild_id": raid["guild_id"],
+                "topic": raid["topic"],
+                "creator_id": raid["creator_id"],
+            }
 
-        participants = await self.repository.get_participants(raid_id)
-        return {
-            "raid": raid,
-            "participants": participants,
-        }
+            participants = await self.repository.get_participants(raid_id)
+            return {
+                "raid": raid,
+                "participants": participants,
+            }
 
     async def complete_raid(self, raid_id: int) -> dict:
         """レイドを完了"""
-        raid = await self.repository.get_raid(raid_id)
-        if not raid:
-            return {"error": "レイドが見つかりません"}
+        async with self._lock:
+            raid = await self.repository.get_raid(raid_id)
+            if not raid:
+                return {"error": "レイドが見つかりません"}
 
-        # 全参加者を完了にマーク
-        participants = await self.repository.get_participants(raid_id)
-        for p in participants:
-            await self.repository.mark_participant_completed(raid_id, p["user_id"])
+            # 全参加者を完了にマーク
+            participants = await self.repository.get_participants(raid_id)
+            for p in participants:
+                await self.repository.mark_participant_completed(raid_id, p["user_id"])
 
-        await self.repository.complete_raid(raid_id)
+            await self.repository.complete_raid(raid_id)
 
-        # メモリからタイマー削除
-        self.active_raids.pop(raid_id, None)
+            # メモリからタイマー削除
+            self.active_raids.pop(raid_id, None)
 
-        return {
-            "raid": raid,
-            "participants": participants,
-        }
+            return {
+                "raid": raid,
+                "participants": participants,
+            }
 
     async def get_active_raids(self, guild_id: int) -> list[dict]:
         """ギルドのアクティブなレイド一覧を取得"""
-        raids = await self.repository.get_active_raids(guild_id)
-        for raid in raids:
-            raid["participant_count"] = await self.repository.get_participant_count(raid["id"])
-        return raids
+        return await self.repository.get_active_raids_with_counts(guild_id)
 
     async def get_raid_status(self, raid_id: int) -> dict | None:
         """レイドの詳細ステータスを取得"""

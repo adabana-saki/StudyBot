@@ -99,7 +99,7 @@ async def test_create_plan_with_ai_tasks(plan_manager):
         '"description": "練習問題を解く"}]'
     )
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.plan_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = ai_response
 
         result = await manager.create_plan(
@@ -146,7 +146,7 @@ async def test_create_plan_ai_failure(plan_manager):
     ]
     conn.fetch.return_value = []
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.plan_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = None
 
         result = await manager.create_plan(
@@ -394,7 +394,7 @@ async def test_get_progress_generate_feedback(plan_manager):
     conn.fetch.return_value = []
     conn.execute.return_value = None
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.plan_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = "素晴らしい進捗です！"
 
         result = await manager.get_progress_with_feedback(user_id=123)

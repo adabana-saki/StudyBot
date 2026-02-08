@@ -132,7 +132,7 @@ async def test_generate_quiz_success(ai_manager):
         ]
     )
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = quiz_json
 
         result = await manager.generate_quiz(
@@ -162,7 +162,7 @@ async def test_generate_quiz_with_code_fences(ai_manager):
         '"answer": "A", "explanation": "E1"}]\n```'
     )
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = quiz_response
 
         result = await manager.generate_quiz(
@@ -221,7 +221,7 @@ async def test_generate_quiz_ai_failure(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = None
 
         result = await manager.generate_quiz(
@@ -242,7 +242,7 @@ async def test_generate_quiz_invalid_json(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = "これはJSONではありません"
 
         result = await manager.generate_quiz(
@@ -266,7 +266,7 @@ async def test_ask_question_success(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = "Pythonのリストはミュータブルな順序付きコレクションです。"
 
         result = await manager.ask_question(
@@ -309,7 +309,7 @@ async def test_ask_question_ai_failure(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = None
 
         result = await manager.ask_question(
@@ -334,7 +334,7 @@ async def test_explain_concept_success(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = "再帰とは、関数が自分自身を呼び出すプログラミング技法です。"
 
         result = await manager.explain_concept(
@@ -373,7 +373,7 @@ async def test_explain_concept_ai_failure(ai_manager):
     conn.execute.return_value = None
     conn.fetchval.return_value = 0
 
-    with patch.object(manager, "_call_openai", new_callable=AsyncMock) as mock_ai:
+    with patch("studybot.managers.ai_doc_manager.call_openai", new_callable=AsyncMock) as mock_ai:
         mock_ai.return_value = None
 
         result = await manager.explain_concept(

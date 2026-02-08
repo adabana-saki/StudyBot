@@ -21,7 +21,15 @@ class GamificationManager:
         return await self.repository.ensure_user_level(user_id)
 
     async def add_xp(self, user_id: int, amount: int, reason: str) -> dict:
-        """XPを付与してレベルアップチェック"""
+        """XPを付与してレベルアップチェック（チャレンジ乗算器適用）"""
+        # アクティブチャレンジのXP乗算器をチェック
+        try:
+            multiplier = await self.repository.get_challenge_xp_multiplier(user_id)
+            if multiplier and multiplier > 1.0:
+                amount = int(amount * multiplier)
+        except Exception:
+            logger.warning("チャレンジXP乗算器の取得に失敗", exc_info=True)
+
         level_info = await self.repository.add_xp(user_id, amount, reason)
         if not level_info:
             return {"error": "XP付与に失敗しました"}
@@ -83,6 +91,33 @@ class GamificationManager:
             await self.repository.add_xp(user_id, XP_REWARDS["streak_bonus"], "連続学習ボーナス")
 
         return {"streak": new_streak, "bonus": bonus}
+
+    async def get_streak_details(self, user_id: int) -> dict | None:
+        """連続学習の詳細情報を取得"""
+        details = await self.repository.get_streak_details(user_id)
+        if not details:
+            return None
+
+        streak = details["streak_days"]
+        best = details["best_streak"]
+
+        # マイルストーン計算 (7, 14, 30, 60, 100)
+        milestones = [7, 14, 30, 60, 100]
+        next_milestone = None
+        for m in milestones:
+            if streak < m:
+                next_milestone = m
+                break
+
+        days_until = (next_milestone - streak) if next_milestone else 0
+
+        return {
+            "streak_days": streak,
+            "best_streak": best,
+            "last_study_date": details["last_study_date"],
+            "next_milestone": next_milestone,
+            "days_until_milestone": days_until,
+        }
 
     async def get_profile(self, user_id: int) -> dict | None:
         """ユーザープロフィールを取得"""

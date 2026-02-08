@@ -12,6 +12,12 @@ httpx>=0.27.0
 # Validation
 pydantic>=2.5.0
 
+# Redis
+redis[hiredis]>=5.0.0
+
+# SSE
+sse-starlette>=2.0.0
+
 # Config
 python-dotenv>=1.0.0
 

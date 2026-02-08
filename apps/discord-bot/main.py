@@ -9,6 +9,10 @@ from discord.ext import commands
 
 from studybot.config.settings import settings
 from studybot.database.manager import DatabaseManager
+from studybot.services.event_publisher import EventPublisher
+from studybot.services.openai_service import set_redis_client
+from studybot.services.redis_client import RedisClient
+from studybot.services.session_sync import SessionSyncService
 
 # ログ設定
 logging.basicConfig(
@@ -27,9 +31,13 @@ class StudyBot(commands.Bot):
         intents.message_content = True
         intents.guilds = True
         intents.members = True
+        intents.voice_states = True
 
         super().__init__(command_prefix="!", intents=intents)
         self.db_manager = DatabaseManager()
+        self.redis_client: RedisClient | None = None
+        self.event_publisher: EventPublisher | None = None
+        self.session_sync: SessionSyncService | None = None
 
     async def setup_hook(self) -> None:
         """Bot接続前の初期化"""
@@ -40,30 +48,64 @@ class StudyBot(commands.Bot):
 
         self.db_pool = self.db_manager.pool
 
-        # Cog読み込み
-        cogs = [
-            "studybot.cogs.pomodoro",
-            "studybot.cogs.study_log",
-            "studybot.cogs.todo",
-            "studybot.cogs.gamification",
-            "studybot.cogs.leaderboard",
-            "studybot.cogs.ai_doc",
-            "studybot.cogs.phone_nudge",
+        # Redis初期化
+        if settings.REDIS_URL:
+            try:
+                self.redis_client = RedisClient(settings.REDIS_URL)
+                await self.redis_client.connect()
+                self.event_publisher = EventPublisher(
+                    self.redis_client, db_pool=self.db_pool
+                )
+                self.session_sync = SessionSyncService(
+                    self.db_pool, self.redis_client
+                )
+                set_redis_client(self.redis_client)
+                logger.info("Redis + SessionSync + AIキャッシュ接続完了")
+            except Exception as e:
+                logger.warning(f"Redis接続失敗（イベント機能無効）: {e}")
+                self.redis_client = None
+                self.event_publisher = None
+
+        # Cog読み込み（critical=True のCogが失敗した場合は起動中止）
+        cog_list = [
+            # Core（必須）
+            ("studybot.cogs.pomodoro", True),
+            ("studybot.cogs.study_log", True),
+            ("studybot.cogs.todo", True),
+            ("studybot.cogs.gamification", True),
+            ("studybot.cogs.leaderboard", False),
+            ("studybot.cogs.ai_doc", False),
+            ("studybot.cogs.phone_nudge", False),
             # Phase 2
-            "studybot.cogs.shop",
-            "studybot.cogs.raid",
-            "studybot.cogs.achievement",
-            "studybot.cogs.flashcard",
-            "studybot.cogs.study_plan",
-            "studybot.cogs.wellness",
-            "studybot.cogs.focus",
+            ("studybot.cogs.shop", False),
+            ("studybot.cogs.raid", False),
+            ("studybot.cogs.achievement", False),
+            ("studybot.cogs.flashcard", False),
+            ("studybot.cogs.study_plan", False),
+            ("studybot.cogs.wellness", False),
+            ("studybot.cogs.focus", False),
+            # Phase 3
+            ("studybot.cogs.voice_study", False),
+            ("studybot.cogs.help", False),
+            ("studybot.cogs.admin", False),
+            # Phase 5
+            ("studybot.cogs.buddy", False),
+            ("studybot.cogs.challenge", False),
+            ("studybot.cogs.insights", False),
+            # Phase 6
+            ("studybot.cogs.quest", False),
+            ("studybot.cogs.team", False),
+            ("studybot.cogs.learning_path", False),
         ]
 
-        for cog in cogs:
+        for cog, critical in cog_list:
             try:
                 await self.load_extension(cog)
                 logger.info(f"Cog読み込み完了: {cog}")
             except Exception as e:
+                if critical:
+                    logger.critical(f"必須Cog読み込み失敗 {cog}: {e}")
+                    sys.exit(1)
                 logger.error(f"Cog読み込み失敗 {cog}: {e}")
 
         # スラッシュコマンド同期
@@ -84,6 +126,8 @@ class StudyBot(commands.Bot):
 
     async def close(self) -> None:
         """シャットダウン処理"""
+        if self.redis_client:
+            await self.redis_client.close()
         await self.db_manager.close()
         await super().close()
 

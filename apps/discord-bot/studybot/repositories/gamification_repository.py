@@ -122,6 +122,21 @@ class GamificationRepository(BaseRepository):
             )
         return [dict(row) for row in rows]
 
+    async def get_challenge_xp_multiplier(self, user_id: int) -> float | None:
+        """アクティブチャレンジのXP乗算器を取得"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT c.xp_multiplier FROM challenges c
+                JOIN challenge_participants cp ON cp.challenge_id = c.id
+                WHERE cp.user_id = $1 AND c.status = 'active'
+                  AND c.start_date <= CURRENT_DATE AND c.end_date >= CURRENT_DATE
+                LIMIT 1
+                """,
+                user_id,
+            )
+        return row["xp_multiplier"] if row else None
+
     async def get_user_rank(self, user_id: int) -> int:
         """ユーザーのXPランクを取得"""
         async with self.db_pool.acquire() as conn:
@@ -134,3 +149,55 @@ class GamificationRepository(BaseRepository):
                 user_id,
             )
         return rank or 0
+
+    async def get_streak_details(self, user_id: int) -> dict | None:
+        """連続学習の詳細情報を取得（現在のストリーク、最高記録）"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT streak_days, last_study_date,
+                       COALESCE(best_streak, streak_days) AS best_streak
+                FROM user_levels
+                WHERE user_id = $1
+                """,
+                user_id,
+            )
+        if not row:
+            return None
+        return {
+            "streak_days": row["streak_days"],
+            "last_study_date": row["last_study_date"],
+            "best_streak": row["best_streak"],
+        }
+
+    async def get_users_needing_streak_reminder(self, today: date) -> list[dict]:
+        """今日まだ学習していないがストリーク>=3のユーザーを取得"""
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT ul.user_id, ul.streak_days
+                FROM user_levels ul
+                WHERE ul.streak_days >= 3
+                  AND (ul.last_study_date IS NULL OR ul.last_study_date < $1)
+                """,
+                today,
+            )
+        return [dict(row) for row in rows]
+
+    async def get_daily_top_earners(self, limit: int = 5) -> list[dict]:
+        """本日のXP獲得量トップユーザーを取得"""
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT xt.user_id, u.username,
+                       SUM(xt.amount) AS daily_xp
+                FROM xp_transactions xt
+                JOIN users u ON u.user_id = xt.user_id
+                WHERE xt.created_at >= CURRENT_DATE
+                GROUP BY xt.user_id, u.username
+                ORDER BY daily_xp DESC
+                LIMIT $1
+                """,
+                limit,
+            )
+        return [dict(row) for row in rows]

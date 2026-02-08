@@ -18,7 +18,7 @@ async def init_pool() -> asyncpg.Pool:
     if not db_url:
         raise RuntimeError("DATABASE_URL が設定されていません")
 
-    pool = await asyncpg.create_pool(db_url, min_size=1, max_size=5, command_timeout=30)
+    pool = await asyncpg.create_pool(db_url, min_size=2, max_size=10, command_timeout=30)
     logger.info("データベース接続プール作成完了")
     return pool
 

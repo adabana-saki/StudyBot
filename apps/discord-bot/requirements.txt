@@ -10,5 +10,8 @@ PyPDF2>=3.0.0
 # Chart
 matplotlib>=3.8.0
 
+# Redis
+redis[hiredis]>=5.0.0
+
 # HTTP
 aiohttp>=3.9.0

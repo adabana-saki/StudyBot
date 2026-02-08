@@ -56,18 +56,42 @@ class PomodoroView(discord.ui.View):
                 f"**{result['topic'] or '無題'}** - {result['total_minutes']}分間学習しました！",
             )
             await interaction.response.send_message(embed=embed)
+
+            # イベント発行: 学習終了
+            if hasattr(self.cog.bot, "event_publisher") and self.cog.bot.event_publisher:
+                try:
+                    await self.cog.bot.event_publisher.emit_study_end(
+                        user_id=self.user_id,
+                        guild_id=getattr(interaction, "guild_id", 0) or 0,
+                        topic=result.get("topic", ""),
+                        username=interaction.user.display_name,
+                        duration_minutes=result.get("total_minutes", 0),
+                    )
+                except Exception:
+                    logger.warning("イベント発行失敗", exc_info=True)
+
+            # セッション同期終了
+            if hasattr(self.cog.bot, "session_sync") and self.cog.bot.session_sync:
+                try:
+                    await self.cog.bot.session_sync.end_session(self.user_id)
+                except Exception:
+                    logger.warning("セッション同期終了失敗", exc_info=True)
+
             # XP付与（ゲーミフィケーション連携）
             gamification = self.cog.bot.get_cog("GamificationCog")
             if gamification and result["total_minutes"] >= result["work_minutes"]:
-                await gamification.award_pomodoro_xp(self.user_id, interaction.channel)
+                try:
+                    await gamification.award_pomodoro_xp(self.user_id, interaction.channel)
+                except Exception:
+                    logger.warning("ポモドーロXP付与に失敗", exc_info=True)
             self.stop()
 
 
-def _build_progress_bar(progress: float, width: int = 20) -> str:
-    """進捗バーを生成"""
+def _build_progress_bar(progress: float, width: int = 15) -> str:
+    """進捗バーを生成（視認性改善版）"""
     filled = int(width * progress)
-    bar = "█" * filled + "░" * (width - filled)
-    return f"[{bar}] {int(progress * 100)}%"
+    bar = "🟦" * filled + "⬜" * (width - filled)
+    return f"{bar} {int(progress * 100)}%"
 
 
 def _format_time(seconds: int) -> str:
@@ -84,6 +108,13 @@ class PomodoroCog(commands.Cog):
         self.manager = manager
 
     async def cog_load(self) -> None:
+        # 起動時にRedisからセッションを復元
+        try:
+            restored = await self.manager.restore_sessions()
+            if restored:
+                logger.info("ポモドーロセッション %d 件を復元しました", restored)
+        except Exception:
+            logger.warning("ポモドーロセッション復元に失敗", exc_info=True)
         self.timer_check.start()
 
     async def cog_unload(self) -> None:
@@ -104,6 +135,10 @@ class PomodoroCog(commands.Cog):
         work_min: int = POMODORO_DEFAULTS["work_minutes"],
         break_min: int = POMODORO_DEFAULTS["break_minutes"],
     ):
+        # 入力値バリデーション
+        work_min = max(5, min(120, work_min))
+        break_min = max(1, min(60, break_min))
+
         await interaction.response.defer()
 
         result = await self.manager.start_session(
@@ -135,14 +170,43 @@ class PomodoroCog(commands.Cog):
         view = PomodoroView(self, interaction.user.id)
         await interaction.followup.send(embed=embed, view=view)
 
+        # イベント発行: 学習開始
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_study_start(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    topic=topic,
+                    username=interaction.user.display_name,
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
+        # セッション同期
+        if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+            try:
+                await self.bot.session_sync.register_session(
+                    user_id=interaction.user.id,
+                    username=interaction.user.display_name,
+                    session_type="pomodoro",
+                    source="discord",
+                    duration_minutes=work_min + break_min,
+                    topic=topic,
+                )
+            except Exception:
+                logger.warning("セッション同期失敗", exc_info=True)
+
         # スマホ通知（phone_nudge連携）
         nudge_cog = self.bot.get_cog("PhoneNudgeCog")
         if nudge_cog:
-            await nudge_cog.send_nudge(
-                interaction.user.id,
-                "study_start",
-                f"🍅 ポモドーロ開始: {topic or '無題'} ({work_min}分)",
-            )
+            try:
+                await nudge_cog.send_nudge(
+                    interaction.user.id,
+                    "study_start",
+                    f"🍅 ポモドーロ開始: {topic or '無題'} ({work_min}分)",
+                )
+            except Exception:
+                logger.warning("ポモドーロ開始通知の送信に失敗", exc_info=True)
 
     @pomodoro_group.command(name="pause", description="セッションを一時停止")
     async def pomodoro_pause(self, interaction: discord.Interaction):
@@ -179,10 +243,41 @@ class PomodoroCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
+        # イベント発行: 学習終了
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_study_end(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    topic=result.get("topic", ""),
+                    username=interaction.user.display_name,
+                    duration_minutes=result.get("total_minutes", 0),
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
+        # セッション同期終了
+        if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+            try:
+                await self.bot.session_sync.end_session(interaction.user.id)
+            except Exception:
+                logger.warning("セッション同期終了失敗", exc_info=True)
+
         # XP付与
         gamification = self.bot.get_cog("GamificationCog")
         if gamification and result["total_minutes"] >= result["work_minutes"]:
-            await gamification.award_pomodoro_xp(interaction.user.id, interaction.channel)
+            try:
+                await gamification.award_pomodoro_xp(interaction.user.id, interaction.channel)
+            except Exception:
+                logger.warning("ポモドーロ停止時のXP付与に失敗", exc_info=True)
+
+        # フォーカスロック連携（レベル4: 学習完了コード）
+        nudge_cog = self.bot.get_cog("PhoneNudgeCog")
+        if nudge_cog:
+            try:
+                await nudge_cog.on_study_completed(interaction.user.id)
+            except Exception:
+                logger.warning("学習完了フック失敗", exc_info=True)
 
     @pomodoro_group.command(name="status", description="タイマーの状態を確認")
     async def pomodoro_status(self, interaction: discord.Interaction):
@@ -213,6 +308,12 @@ class PomodoroCog(commands.Cog):
     @tasks.loop(seconds=30)
     async def timer_check(self):
         """30秒ごとにタイマーをチェックして通知"""
+        try:
+            await self._timer_check_impl()
+        except Exception:
+            logger.error("タイマーチェック中にエラー", exc_info=True)
+
+    async def _timer_check_impl(self):
         to_transition = []
         to_complete = []
 
@@ -251,19 +352,61 @@ class PomodoroCog(commands.Cog):
             if result and channel_id:
                 channel = self.bot.get_channel(channel_id)
                 if channel:
-                    embed = success_embed(
-                        "ポモドーロ完了！🎉",
-                        (
-                            f"**{result['topic'] or '無題'}** のセッションが完了しました！\n"
-                            f"合計 {result['total_minutes']}分間学習しました。"
+                    embed = discord.Embed(
+                        title="🍅 ポモドーロ完了！🎉",
+                        description=(
+                            f"**{result['topic'] or '無題'}** のセッションが完了しました！\n\n"
+                            f"⏱️ 作業: {result.get('work_minutes', 25)}分\n"
+                            f"☕ 休憩: {result.get('break_minutes', 5)}分\n"
+                            f"📊 合計: {result['total_minutes']}分間学習\n\n"
+                            f"{_build_progress_bar(1.0)}"
                         ),
+                        color=COLORS["pomodoro"],
                     )
+                    embed.set_footer(text="お疲れ様でした！次のセッションも頑張りましょう💪")
                     await channel.send(f"<@{user_id}>", embed=embed)
+
+                    # イベント発行: ポモドーロ完了
+                    if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+                        try:
+                            await self.bot.event_publisher.emit_pomodoro_complete(
+                                user_id=user_id,
+                                guild_id=timer_info.get("guild_id", 0) or 0,
+                                topic=result.get("topic", ""),
+                                username=timer_info.get("username", ""),
+                                work_minutes=result.get("work_minutes", 0),
+                            )
+                        except Exception:
+                            logger.warning("イベント発行失敗", exc_info=True)
+
+                    # セッション同期終了
+                    if hasattr(self.bot, "session_sync") and self.bot.session_sync:
+                        try:
+                            await self.bot.session_sync.end_session(user_id)
+                        except Exception:
+                            logger.warning("セッション同期終了失敗", exc_info=True)
 
                     # XP付与
                     gamification = self.bot.get_cog("GamificationCog")
                     if gamification:
-                        await gamification.award_pomodoro_xp(user_id, channel)
+                        try:
+                            await gamification.award_pomodoro_xp(user_id, channel)
+                        except Exception:
+                            logger.warning(
+                                f"タイマー完了時のXP付与に失敗 (user={user_id})",
+                                exc_info=True,
+                            )
+
+                    # フォーカスロック連携
+                    nudge_cog = self.bot.get_cog("PhoneNudgeCog")
+                    if nudge_cog:
+                        try:
+                            await nudge_cog.on_study_completed(user_id)
+                        except Exception:
+                            logger.warning(
+                                f"学習完了フック失敗 (user={user_id})",
+                                exc_info=True,
+                            )
 
     @timer_check.before_loop
     async def before_timer_check(self):
@@ -275,5 +418,6 @@ async def setup(bot: commands.Bot):
     if not db_pool:
         logger.error("db_pool が見つかりません")
         return
-    manager = PomodoroManager(db_pool)
+    redis_client = getattr(bot, "redis_client", None)
+    manager = PomodoroManager(db_pool, redis_client=redis_client)
     await bot.add_cog(PomodoroCog(bot, manager))

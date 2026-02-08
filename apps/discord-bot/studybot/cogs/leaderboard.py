@@ -1,15 +1,18 @@
 """リーダーボード Cog"""
 
 import logging
+from datetime import time, timedelta, timezone
 
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from studybot.config.constants import COLORS, MEDAL_EMOJIS, PERIOD_LABELS
 from studybot.repositories.gamification_repository import GamificationRepository
 from studybot.repositories.study_repository import StudyRepository
 from studybot.repositories.todo_repository import TodoRepository
+
+JST = timezone(timedelta(hours=9))
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +86,16 @@ class LeaderboardCog(commands.Cog):
 
     def __init__(self, bot: commands.Bot, db_pool) -> None:
         self.bot = bot
+        self.db_pool = db_pool
         self.study_repo = StudyRepository(db_pool)
         self.gamification_repo = GamificationRepository(db_pool)
         self.todo_repo = TodoRepository(db_pool)
+
+    async def cog_load(self) -> None:
+        self.daily_leaderboard_post.start()
+
+    async def cog_unload(self) -> None:
+        self.daily_leaderboard_post.cancel()
 
     @app_commands.command(name="leaderboard", description="ランキングを表示")
     @app_commands.describe(
@@ -173,6 +183,56 @@ class LeaderboardCog(commands.Cog):
                 limit,
             )
         return [dict(row) for row in rows]
+
+    def _find_leaderboard_channel(self, guild: discord.Guild) -> discord.TextChannel | None:
+        """リーダーボード投稿先チャンネルを検索"""
+        for name in ("leaderboard", "study-log"):
+            for channel in guild.text_channels:
+                if channel.name == name:
+                    return channel
+        return None
+
+    @tasks.loop(time=time(hour=22, minute=0, tzinfo=JST))
+    async def daily_leaderboard_post(self):
+        """毎日22:00 JSTにデイリーXPランキングを自動投稿"""
+        top_earners = await self.gamification_repo.get_daily_top_earners(limit=5)
+
+        if not top_earners:
+            return
+
+        lines = []
+        for i, entry in enumerate(top_earners):
+            medal = MEDAL_EMOJIS[i] if i < len(MEDAL_EMOJIS) else f"`{i + 1}.`"
+            name = entry.get("username", "Unknown")
+            xp = entry.get("daily_xp", 0)
+            lines.append(f"{medal} **{name}** - {xp:,} XP")
+
+        description = "\n".join(lines)
+
+        embed = discord.Embed(
+            title="📊 本日のXPランキング",
+            description=description,
+            color=COLORS["xp"],
+        )
+        embed.set_footer(text="明日もがんばろう！")
+
+        for guild in self.bot.guilds:
+            channel = self._find_leaderboard_channel(guild)
+            if channel:
+                try:
+                    await channel.send(embed=embed)
+                except discord.Forbidden:
+                    logger.debug("チャンネル送信不可: guild=%d", guild.id)
+                except Exception:
+                    logger.warning(
+                        "デイリーリーダーボード投稿失敗: guild=%d",
+                        guild.id,
+                        exc_info=True,
+                    )
+
+    @daily_leaderboard_post.before_loop
+    async def before_daily_leaderboard_post(self):
+        await self.bot.wait_until_ready()
 
 
 async def setup(bot: commands.Bot):

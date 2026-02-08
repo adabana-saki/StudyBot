@@ -42,6 +42,19 @@ class RaidJoinView(discord.ui.View):
                 f"({result['participant_count']}/{result['raid']['max_participants']})",
             )
 
+            # イベント発行: レイド参加
+            bot = interaction.client
+            if hasattr(bot, "event_publisher") and bot.event_publisher:
+                try:
+                    await bot.event_publisher.emit_raid_join(
+                        user_id=interaction.user.id,
+                        guild_id=getattr(interaction, "guild_id", 0) or 0,
+                        username=interaction.user.display_name,
+                        raid_topic=result.get("raid", {}).get("topic", ""),
+                    )
+                except Exception:
+                    logger.warning("イベント発行失敗", exc_info=True)
+
     @discord.ui.button(label="🚪 離脱", style=discord.ButtonStyle.secondary)
     async def leave_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         result = await self.cog.manager.leave_raid(self.raid_id, interaction.user.id)
@@ -159,6 +172,18 @@ class RaidCog(commands.Cog):
             )
         )
 
+        # イベント発行: レイド参加
+        if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+            try:
+                await self.bot.event_publisher.emit_raid_join(
+                    user_id=interaction.user.id,
+                    guild_id=getattr(interaction, "guild_id", 0) or 0,
+                    username=interaction.user.display_name,
+                    raid_topic=result.get("raid", {}).get("topic", ""),
+                )
+            except Exception:
+                logger.warning("イベント発行失敗", exc_info=True)
+
     @raid_group.command(name="leave", description="レイドから離脱")
     @app_commands.describe(raid_id="レイドID")
     async def raid_leave(self, interaction: discord.Interaction, raid_id: int):
@@ -206,6 +231,12 @@ class RaidCog(commands.Cog):
     @tasks.loop(seconds=30)
     async def raid_check(self):
         """30秒ごとにアクティブレイドの完了をチェック"""
+        try:
+            await self._raid_check_impl()
+        except Exception:
+            logger.error("レイドチェック中にエラー", exc_info=True)
+
+    async def _raid_check_impl(self):
         to_complete = []
         now = datetime.now(UTC)
 
@@ -241,6 +272,22 @@ class RaidCog(commands.Cog):
             )
             await channel.send(" ".join(participant_mentions), embed=embed)
 
+            # イベント発行: レイド完了（各参加者に対して）
+            if hasattr(self.bot, "event_publisher") and self.bot.event_publisher:
+                raid_topic = result.get("raid", {}).get("topic", "")
+                participant_count = len(participants)
+                for p in participants:
+                    try:
+                        await self.bot.event_publisher.emit_raid_complete(
+                            user_id=p["user_id"],
+                            guild_id=timer.get("guild_id", 0) or 0,
+                            username=p.get("username", ""),
+                            raid_topic=raid_topic,
+                            participants=participant_count,
+                        )
+                    except Exception:
+                        logger.warning("イベント発行失敗", exc_info=True)
+
             # XP・コイン付与
             gamification = self.bot.get_cog("GamificationCog")
             shop_cog = self.bot.get_cog("ShopCog")
@@ -251,21 +298,32 @@ class RaidCog(commands.Cog):
 
                 # XP付与（レイドボーナス倍率）
                 if gamification:
-                    await gamification.award_raid_xp(
-                        user_id, XP_REWARDS["pomodoro_complete"], channel
-                    )
+                    try:
+                        await gamification.award_raid_xp(
+                            user_id, XP_REWARDS["pomodoro_complete"], channel
+                        )
+                    except Exception:
+                        logger.warning(f"レイドXP付与に失敗 (user={user_id})", exc_info=True)
 
                 # コイン付与
                 if shop_cog:
-                    is_creator = user_id == result["raid"]["creator_id"]
-                    coin_amount = (
-                        COIN_REWARDS["raid_host"] if is_creator else COIN_REWARDS["raid_complete"]
-                    )
-                    await shop_cog.award_coins(user_id, "", coin_amount, "レイド完了")
+                    try:
+                        is_creator = user_id == result["raid"]["creator_id"]
+                        coin_amount = (
+                            COIN_REWARDS["raid_host"]
+                            if is_creator
+                            else COIN_REWARDS["raid_complete"]
+                        )
+                        await shop_cog.award_coins(user_id, "", coin_amount, "レイド完了")
+                    except Exception:
+                        logger.warning(f"レイドコイン付与に失敗 (user={user_id})", exc_info=True)
 
                 # 実績チェック
                 if achievement_cog:
-                    await achievement_cog.check_achievement(user_id, "first_raid", 1, channel)
+                    try:
+                        await achievement_cog.check_achievement(user_id, "first_raid", 1, channel)
+                    except Exception:
+                        logger.warning(f"レイド実績チェックに失敗 (user={user_id})", exc_info=True)
 
     @raid_check.before_loop
     async def before_raid_check(self):

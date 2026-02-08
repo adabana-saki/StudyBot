@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
 import { getMyAchievements, UserAchievement } from "@/lib/api";
 import AchievementCard from "@/components/AchievementCard";
+import PageHeader from "@/components/PageHeader";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function AchievementsPage() {
   const router = useRouter();
@@ -60,87 +65,72 @@ export default function AchievementsPage() {
   const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blurple"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-gray-800 rounded-xl p-8 border border-red-600/50 max-w-md w-full text-center">
-          <span className="text-4xl block mb-4">⚠️</span>
-          <p className="text-gray-400">{error}</p>
-        </div>
+        <Card className="border-destructive/50 max-w-md w-full">
+          <CardContent className="p-8 text-center">
+            <span className="text-4xl block mb-4">⚠️</span>
+            <p className="text-muted-foreground">{error}</p>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-white">実績</h1>
-          <p className="text-gray-400 mt-1">
-            {unlockedCount} / {achievements.length} 解除済み
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="実績"
+        description={`${unlockedCount} / ${achievements.length} 解除済み`}
+      />
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2 mb-6">
-        <button
+        <Button
+          variant={filter === "all" ? "default" : "outline"}
+          size="sm"
           onClick={() => setFilter("all")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === "all"
-              ? "bg-blurple text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"
-          }`}
         >
           すべて ({achievements.length})
-        </button>
-        <button
+        </Button>
+        <Button
+          variant={filter === "unlocked" ? "default" : "outline"}
+          size="sm"
           onClick={() => setFilter("unlocked")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === "unlocked"
-              ? "bg-yellow-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"
-          }`}
+          className={cn(filter === "unlocked" && "bg-yellow-600 hover:bg-yellow-700")}
         >
           解除済み ({unlockedCount})
-        </button>
-        <button
+        </Button>
+        <Button
+          variant={filter === "locked" ? "secondary" : "outline"}
+          size="sm"
           onClick={() => setFilter("locked")}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-            filter === "locked"
-              ? "bg-gray-600 text-white"
-              : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"
-          }`}
         >
           未解除 ({achievements.length - unlockedCount})
-        </button>
+        </Button>
         {allCategories.map((cat) => (
-          <button
+          <Button
             key={cat}
+            variant={filter === cat ? "default" : "outline"}
+            size="sm"
             onClick={() => setFilter(cat)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              filter === cat
-                ? "bg-blurple text-white"
-                : "bg-gray-800 text-gray-400 hover:text-white border border-gray-700"
-            }`}
           >
             {cat}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* Achievement Grid */}
       {sortedAchievements.length === 0 ? (
-        <div className="bg-gray-800 rounded-xl p-8 border border-gray-700 text-center">
-          <p className="text-gray-400">実績が見つかりません</p>
-        </div>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">実績が見つかりません</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedAchievements.map((item) => (

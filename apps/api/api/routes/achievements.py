@@ -1,21 +1,29 @@
 """実績ルート"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from api.database import get_pool
 from api.dependencies import get_current_user
-from api.models.schemas import Achievement, UserAchievement
+from api.models.schemas import Achievement, PaginatedResponse, UserAchievement
 
 router = APIRouter(prefix="/api/achievements", tags=["achievements"])
 
 
-@router.get("/all", response_model=list[Achievement])
-async def get_all_achievements():
+@router.get("/all", response_model=PaginatedResponse[Achievement])
+async def get_all_achievements(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
     """全実績を取得"""
     pool = get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM achievements ORDER BY category, id")
-    return [
+        total = await conn.fetchval("SELECT COUNT(*) FROM achievements")
+        rows = await conn.fetch(
+            "SELECT * FROM achievements ORDER BY category, id LIMIT $1 OFFSET $2",
+            limit,
+            offset,
+        )
+    items = [
         Achievement(
             id=row["id"],
             key=row["key"],
@@ -28,15 +36,23 @@ async def get_all_achievements():
         )
         for row in rows
     ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
-@router.get("/me", response_model=list[UserAchievement])
-async def get_my_achievements(current_user: dict = Depends(get_current_user)):
+@router.get("/me", response_model=PaginatedResponse[UserAchievement])
+async def get_my_achievements(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+):
     """自分の実績進捗を取得"""
     user_id = current_user["user_id"]
     pool = get_pool()
 
     async with pool.acquire() as conn:
+        total = await conn.fetchval(
+            "SELECT COUNT(*) FROM achievements",
+        )
         rows = await conn.fetch(
             """
             SELECT
@@ -49,11 +65,14 @@ async def get_my_achievements(current_user: dict = Depends(get_current_user)):
             LEFT JOIN user_achievements ua
                 ON ua.achievement_id = a.id AND ua.user_id = $1
             ORDER BY a.category, a.id
+            LIMIT $2 OFFSET $3
             """,
             user_id,
+            limit,
+            offset,
         )
 
-    return [
+    items = [
         UserAchievement(
             achievement=Achievement(
                 id=row["id"],
@@ -71,3 +90,4 @@ async def get_my_achievements(current_user: dict = Depends(get_current_user)):
         )
         for row in rows
     ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)

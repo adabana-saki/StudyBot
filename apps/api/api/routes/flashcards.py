@@ -2,28 +2,38 @@
 
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.database import get_pool
 from api.dependencies import get_current_user
-from api.models.schemas import DeckStats, Flashcard, FlashcardDeck, ReviewRequest
+from api.models.schemas import DeckStats, Flashcard, FlashcardDeck, PaginatedResponse, ReviewRequest
 
 router = APIRouter(prefix="/api/flashcards", tags=["flashcards"])
 
 
-@router.get("/decks", response_model=list[FlashcardDeck])
-async def get_my_decks(current_user: dict = Depends(get_current_user)):
+@router.get("/decks", response_model=PaginatedResponse[FlashcardDeck])
+async def get_my_decks(
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+    current_user: dict = Depends(get_current_user),
+):
     """自分のデッキ一覧を取得"""
     user_id = current_user["user_id"]
     pool = get_pool()
 
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT * FROM flashcard_decks WHERE user_id = $1 ORDER BY created_at DESC",
+        total = await conn.fetchval(
+            "SELECT COUNT(*) FROM flashcard_decks WHERE user_id = $1",
             user_id,
         )
+        rows = await conn.fetch(
+            "SELECT * FROM flashcard_decks WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3",
+            user_id,
+            limit,
+            offset,
+        )
 
-    return [
+    items = [
         FlashcardDeck(
             id=row["id"],
             name=row["name"],
@@ -33,6 +43,7 @@ async def get_my_decks(current_user: dict = Depends(get_current_user)):
         )
         for row in rows
     ]
+    return PaginatedResponse(items=items, total=total, offset=offset, limit=limit)
 
 
 @router.get("/decks/{deck_id}/cards", response_model=list[Flashcard])
@@ -78,7 +89,7 @@ async def get_deck_cards(
 @router.get("/decks/{deck_id}/review", response_model=list[Flashcard])
 async def get_review_cards(
     deck_id: int,
-    limit: int = 10,
+    limit: int = Query(default=10, ge=1, le=100),
     current_user: dict = Depends(get_current_user),
 ):
     """復習対象のカードを取得"""
@@ -131,13 +142,14 @@ async def submit_review(
     user_id = current_user["user_id"]
     pool = get_pool()
 
-    if not 1 <= review.quality <= 5:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="品質は1-5の範囲で指定してください"
-        )
-
     async with pool.acquire() as conn:
-        card = await conn.fetchrow("SELECT * FROM flashcards WHERE id = $1", review.card_id)
+        card = await conn.fetchrow(
+            """SELECT f.* FROM flashcards f
+               JOIN flashcard_decks d ON d.id = f.deck_id
+               WHERE f.id = $1 AND d.user_id = $2""",
+            review.card_id,
+            user_id,
+        )
         if not card:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="カードが見つかりません"
