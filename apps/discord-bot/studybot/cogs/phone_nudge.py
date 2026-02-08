@@ -10,7 +10,7 @@ from discord.ext import commands, tasks
 
 from studybot.config.constants import COIN_REWARDS, COLORS, NUDGE_LEVELS, UNLOCK_LEVELS
 from studybot.managers.nudge_manager import NudgeManager
-from studybot.utils.embed_helper import error_embed, focus_embed, success_embed
+from studybot.utils.embed_helper import error_embed, focus_embed, info_embed, success_embed
 
 logger = logging.getLogger(__name__)
 
@@ -90,8 +90,11 @@ class LockConfirmView(discord.ui.View):
             try:
                 user = interaction.user
                 await user.send(
-                    f"🔒 フォーカスロック確認コード: **{result['confirmation_code']}**\n"
-                    f"このコードは解除時に必要です（有効期限: 15分）"
+                    embed=focus_embed(
+                        "🔒 フォーカスロック確認コード",
+                        f"コード: **{result['confirmation_code']}**\n"
+                        f"このコードは解除時に必要です（有効期限: 15分）",
+                    )
                 )
                 desc += "\n確認コードをDMに送信しました。"
             except discord.Forbidden:
@@ -280,10 +283,9 @@ class PhoneNudgeCog(commands.Cog):
 
         if not config:
             await interaction.response.send_message(
-                embed=discord.Embed(
-                    title="通知設定",
-                    description="未設定です。`/nudge setup` で設定してください。",
-                    color=COLORS["primary"],
+                embed=info_embed(
+                    "📱 通知設定",
+                    "未設定です。`/nudge setup` で設定してください。",
                 ),
                 ephemeral=True,
             )
@@ -293,10 +295,7 @@ class PhoneNudgeCog(commands.Cog):
         url = config.get("webhook_url", "")
         masked_url = url[:30] + "..." if len(url) > 30 else url
 
-        embed = discord.Embed(
-            title="通知設定",
-            color=COLORS["primary"],
-        )
+        embed = info_embed("📱 通知設定", "")
         embed.add_field(name="ステータス", value=status, inline=True)
         embed.add_field(name="Webhook", value=masked_url, inline=False)
         await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -313,7 +312,10 @@ class PhoneNudgeCog(commands.Cog):
                 user = self.bot.get_user(user_id) or await self.bot.fetch_user(user_id)
                 if user:
                     await user.send(
-                        f"📚 学習完了！フォーカスロック解除コード: **{code}**\n（有効期限: 15分）"
+                        embed=focus_embed(
+                            "📚 学習完了！",
+                            f"フォーカスロック解除コード: **{code}**\n（有効期限: 15分）",
+                        )
                     )
             except Exception as e:
                 logger.warning("学習完了コード送信エラー (user=%d): %s", user_id, e)

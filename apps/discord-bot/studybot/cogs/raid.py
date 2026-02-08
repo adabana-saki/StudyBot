@@ -35,11 +35,16 @@ class RaidJoinView(discord.ui.View):
         )
 
         if "error" in result:
-            await interaction.response.send_message(result["error"], ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("参加失敗", result["error"]), ephemeral=True
+            )
         else:
             await interaction.response.send_message(
-                f"⚔️ {interaction.user.display_name} がレイドに参加しました！ "
-                f"({result['participant_count']}/{result['raid']['max_participants']})",
+                embed=raid_embed(
+                    "レイド参加！",
+                    f"⚔️ {interaction.user.display_name} がレイドに参加しました！\n"
+                    f"({result['participant_count']}/{result['raid']['max_participants']})",
+                ),
             )
 
             # イベント発行: レイド参加
@@ -60,10 +65,15 @@ class RaidJoinView(discord.ui.View):
         result = await self.cog.manager.leave_raid(self.raid_id, interaction.user.id)
 
         if "error" in result:
-            await interaction.response.send_message(result["error"], ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("離脱失敗", result["error"]), ephemeral=True
+            )
         else:
             await interaction.response.send_message(
-                f"🚪 {interaction.user.display_name} がレイドから離脱しました。",
+                embed=raid_embed(
+                    "レイド離脱",
+                    f"🚪 {interaction.user.display_name} がレイドから離脱しました。",
+                ),
                 ephemeral=True,
             )
 
@@ -73,13 +83,16 @@ class RaidJoinView(discord.ui.View):
         raid = await self.cog.manager.repository.get_raid(self.raid_id)
         if not raid or raid["creator_id"] != interaction.user.id:
             await interaction.response.send_message(
-                "レイド作成者のみ開始できます。", ephemeral=True
+                embed=error_embed("権限エラー", "レイド作成者のみ開始できます。"),
+                ephemeral=True,
             )
             return
 
         result = await self.cog.manager.start_raid(self.raid_id)
         if "error" in result:
-            await interaction.response.send_message(result["error"], ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("開始失敗", result["error"]), ephemeral=True
+            )
             return
 
         participant_names = [p["username"] for p in result["participants"]]

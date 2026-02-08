@@ -16,6 +16,7 @@ from api.routes import (
     activity,
     admin,
     auth,
+    battles,
     buddy,
     challenges,
     events,
@@ -27,9 +28,12 @@ from api.routes import (
     notifications,
     plans,
     profile,
+    rooms,
     server,
+    server_analytics,
     sessions,
     shop,
+    social,
     stats,
     todos,
     wellness,
@@ -115,6 +119,11 @@ app.include_router(buddy.router)
 app.include_router(challenges.router)
 app.include_router(sessions.router)
 app.include_router(insights.router)
+# Phase 8
+app.include_router(social.router)
+app.include_router(battles.router)
+app.include_router(server_analytics.router)
+app.include_router(rooms.router)
 
 
 @app.get("/")

@@ -118,6 +118,54 @@ class BuddyRepository(BaseRepository):
                 vc_channel_id,
             )
 
+    async def has_active_buddy_session(self, user_id: int) -> bool:
+        """バディがアクティブなセッション(ポモドーロまたはフォーカス)を持っているかチェック"""
+        async with self.db_pool.acquire() as conn:
+            # アクティブなバディマッチを取得
+            matches = await conn.fetch(
+                """
+                SELECT user_a, user_b FROM buddy_matches
+                WHERE (user_a = $1 OR user_b = $1) AND status = 'active'
+                """,
+                user_id,
+            )
+            if not matches:
+                return False
+
+            # バディユーザーIDリストを作成
+            buddy_ids = []
+            for m in matches:
+                buddy_ids.append(m["user_b"] if m["user_a"] == user_id else m["user_a"])
+
+            if not buddy_ids:
+                return False
+
+            # バディがアクティブなセッションを持っているかチェック
+            for buddy_id in buddy_ids:
+                row = await conn.fetchrow(
+                    """
+                    SELECT 1 FROM pomodoro_sessions
+                    WHERE user_id = $1 AND state IN ('working', 'break')
+                    LIMIT 1
+                    """,
+                    buddy_id,
+                )
+                if row:
+                    return True
+
+                row = await conn.fetchrow(
+                    """
+                    SELECT 1 FROM focus_sessions
+                    WHERE user_id = $1 AND state = 'active'
+                    LIMIT 1
+                    """,
+                    buddy_id,
+                )
+                if row:
+                    return True
+
+            return False
+
     async def end_session(self, session_id: int, total_minutes: int) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(

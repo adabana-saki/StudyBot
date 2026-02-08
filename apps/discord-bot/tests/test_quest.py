@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from studybot.managers.quest_manager import QuestManager, _generate_quests
+from studybot.managers.quest_manager import QuestManager, _generate_random_quests
 
 
 @pytest.fixture
@@ -223,7 +223,7 @@ async def test_update_progress(quest_manager):
 
 def test_generate_quests_produces_three():
     """クエスト生成が3つ生成するテスト"""
-    quests = _generate_quests(user_id=123, quest_date=date.today())
+    quests = _generate_random_quests(user_id=123, quest_date=date.today())
 
     assert len(quests) == 3
     quest_types = [q["quest_type"] for q in quests]

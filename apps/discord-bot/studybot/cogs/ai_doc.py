@@ -46,7 +46,8 @@ class QuizView(discord.ui.View):
         async def callback(interaction: discord.Interaction):
             if interaction.user.id != self.user_id:
                 await interaction.response.send_message(
-                    "このクイズは他のユーザーのものです。", ephemeral=True
+                    embed=error_embed("エラー", "このクイズは他のユーザーのものです。"),
+                    ephemeral=True,
                 )
                 return
 

@@ -110,3 +110,63 @@ class QuestRepository(BaseRepository):
                 user_id,
             )
             return dict(row) if row else None
+
+    async def get_user_activity_profile(self, user_id: int, days: int = 14) -> dict:
+        """ユーザーの直近アクティビティプロファイルを取得（スマートクエスト用）"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM pomodoro_sessions
+                     WHERE user_id = $1 AND created_at >= NOW() - make_interval(days => $2)
+                    ) AS pomodoro_count,
+                    (SELECT COALESCE(SUM(duration_minutes), 0) FROM study_logs
+                     WHERE user_id = $1 AND logged_at >= NOW() - make_interval(days => $2)
+                    ) AS study_minutes,
+                    (SELECT COUNT(*) FROM todos
+                     WHERE user_id = $1 AND status = 'completed'
+                       AND completed_at >= NOW() - make_interval(days => $2)
+                    ) AS tasks_completed,
+                    (SELECT COUNT(*) FROM study_logs
+                     WHERE user_id = $1 AND logged_at >= NOW() - make_interval(days => $2)
+                    ) AS log_count
+                """,
+                user_id,
+                days,
+            )
+        return dict(row) if row else {
+            "pomodoro_count": 0,
+            "study_minutes": 0,
+            "tasks_completed": 0,
+            "log_count": 0,
+        }
+
+    async def get_consecutive_quest_days(self, user_id: int) -> int:
+        """連続してデイリークエストを全完了した日数を取得"""
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT quest_date,
+                       COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE completed) AS done
+                FROM daily_quests
+                WHERE user_id = $1
+                GROUP BY quest_date
+                ORDER BY quest_date DESC
+                LIMIT 30
+                """,
+                user_id,
+            )
+        if not rows:
+            return 0
+        streak = 0
+        from datetime import date as date_type, timedelta
+        expected = date_type.today()
+        for row in rows:
+            qdate = row["quest_date"]
+            if qdate == expected and row["done"] == row["total"]:
+                streak += 1
+                expected -= timedelta(days=1)
+            else:
+                break
+        return streak

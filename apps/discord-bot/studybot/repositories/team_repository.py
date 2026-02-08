@@ -1,6 +1,8 @@
 """スタディチーム リポジトリ"""
 
 import logging
+import random
+from datetime import date
 
 from studybot.repositories.base import BaseRepository
 
@@ -225,6 +227,109 @@ class TeamRepository(BaseRepository):
                     weekly_minutes / member_count
                 ),
             }
+
+    # --- チームクエスト ---
+
+    async def get_team_quests(self, team_id: int, quest_date: date) -> list[dict]:
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT * FROM team_quests
+                WHERE team_id = $1 AND quest_date = $2
+                ORDER BY id
+                """,
+                team_id,
+                quest_date,
+            )
+            return [dict(r) for r in rows]
+
+    async def create_team_quest(
+        self,
+        team_id: int,
+        quest_type: str,
+        target: int,
+        reward_xp: int,
+        reward_coins: int,
+        quest_date: date,
+    ) -> int:
+        async with self.db_pool.acquire() as conn:
+            return await conn.fetchval(
+                """
+                INSERT INTO team_quests
+                    (team_id, quest_type, target, reward_xp, reward_coins, quest_date)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING id
+                """,
+                team_id,
+                quest_type,
+                target,
+                reward_xp,
+                reward_coins,
+                quest_date,
+            )
+
+    async def update_team_quest_progress(
+        self, team_id: int, quest_type: str, quest_date: date, delta: int
+    ) -> list[dict]:
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE team_quests
+                SET progress = LEAST(progress + $4, target),
+                    completed = (progress + $4 >= target)
+                WHERE team_id = $1
+                  AND quest_type = $2
+                  AND quest_date = $3
+                  AND claimed = FALSE
+                """,
+                team_id,
+                quest_type,
+                quest_date,
+                delta,
+            )
+            rows = await conn.fetch(
+                """
+                SELECT * FROM team_quests
+                WHERE team_id = $1 AND quest_type = $2 AND quest_date = $3
+                """,
+                team_id,
+                quest_type,
+                quest_date,
+            )
+            return [dict(r) for r in rows]
+
+    async def claim_team_quest(self, quest_id: int, team_id: int) -> dict | None:
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                UPDATE team_quests
+                SET claimed = TRUE
+                WHERE id = $1 AND team_id = $2
+                  AND completed = TRUE AND claimed = FALSE
+                RETURNING *
+                """,
+                quest_id,
+                team_id,
+            )
+            return dict(row) if row else None
+
+    async def get_team_quest_by_id(self, quest_id: int, team_id: int) -> dict | None:
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM team_quests WHERE id = $1 AND team_id = $2",
+                quest_id,
+                team_id,
+            )
+            return dict(row) if row else None
+
+    async def get_user_team_ids(self, user_id: int) -> list[int]:
+        """ユーザーが参加している全チームIDを取得"""
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT team_id FROM team_members WHERE user_id = $1",
+                user_id,
+            )
+            return [r["team_id"] for r in rows]
 
     async def list_guild_teams(self, guild_id: int) -> list[dict]:
         async with self.db_pool.acquire() as conn:

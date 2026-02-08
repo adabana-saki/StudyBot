@@ -712,3 +712,228 @@ export function getMyReports(): Promise<WeeklyReport[]> {
 export function getReportDetail(id: number): Promise<WeeklyReport> {
   return fetchAPI<WeeklyReport>(`/api/insights/me/reports/${id}`);
 }
+
+// === Timeline ===
+export interface TimelineEvent {
+  id: number;
+  user_id: number;
+  username: string;
+  event_type: string;
+  event_data: Record<string, unknown>;
+  created_at: string;
+  reaction_counts: Record<string, number>;
+  my_reactions: string[];
+  comment_count: number;
+}
+
+export interface CommentResponse {
+  id: number;
+  user_id: number;
+  username: string;
+  body: string;
+  created_at: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export function getTimeline(guildId: string, offset = 0, limit = 30): Promise<PaginatedResponse<TimelineEvent>> {
+  return fetchAPI<PaginatedResponse<TimelineEvent>>(
+    `/api/timeline/${guildId}?offset=${offset}&limit=${limit}`
+  );
+}
+
+export function addReaction(eventId: number, type: string): Promise<void> {
+  return fetchAPI("/api/timeline/" + eventId + "/reactions", {
+    method: "POST",
+    body: JSON.stringify({ reaction_type: type }),
+  });
+}
+
+export function removeReaction(eventId: number, type: string): Promise<void> {
+  return fetchAPI(`/api/timeline/${eventId}/reactions/${type}`, {
+    method: "DELETE",
+  });
+}
+
+export function getComments(eventId: number): Promise<CommentResponse[]> {
+  return fetchAPI<CommentResponse[]>(`/api/timeline/${eventId}/comments`);
+}
+
+export function addComment(eventId: number, body: string): Promise<CommentResponse> {
+  return fetchAPI<CommentResponse>(`/api/timeline/${eventId}/comments`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function deleteComment(commentId: number): Promise<void> {
+  return fetchAPI(`/api/timeline/comments/${commentId}`, { method: "DELETE" });
+}
+
+// === Battles ===
+export interface TeamBattleInfo {
+  team_id: number;
+  name: string;
+  score: number;
+  member_count: number;
+}
+
+export interface BattleResponse {
+  id: number;
+  guild_id: number;
+  goal_type: string;
+  duration_days: number;
+  start_date: string;
+  end_date: string;
+  status: string;
+  xp_multiplier: number;
+  team_a: TeamBattleInfo;
+  team_b: TeamBattleInfo;
+  winner_team_id: number | null;
+}
+
+export interface BattleContribution {
+  user_id: number;
+  username: string;
+  team_id: number;
+  contribution: number;
+  source: string;
+}
+
+export interface BattleDetailResponse extends BattleResponse {
+  contributions: BattleContribution[];
+}
+
+export function getBattles(guildId: string): Promise<BattleResponse[]> {
+  return fetchAPI<BattleResponse[]>(`/api/battles/${guildId}`);
+}
+
+export function getBattleDetail(guildId: string, battleId: number): Promise<BattleDetailResponse> {
+  return fetchAPI<BattleDetailResponse>(`/api/battles/${guildId}/${battleId}`);
+}
+
+// === Rooms ===
+export interface StudyRoom {
+  id: number;
+  guild_id: number;
+  name: string;
+  description: string;
+  theme: string;
+  collective_goal_minutes: number;
+  collective_progress_minutes: number;
+  max_occupants: number;
+  member_count: number;
+  state: string;
+}
+
+export interface RoomMember {
+  user_id: number;
+  username: string;
+  platform: string;
+  topic: string;
+  joined_at: string;
+}
+
+export interface RoomDetail extends StudyRoom {
+  members: RoomMember[];
+}
+
+export function getRooms(guildId: string): Promise<StudyRoom[]> {
+  return fetchAPI<StudyRoom[]>(`/api/rooms/${guildId}`);
+}
+
+export function getRoomDetail(guildId: string, roomId: number): Promise<RoomDetail> {
+  return fetchAPI<RoomDetail>(`/api/rooms/${guildId}/${roomId}`);
+}
+
+export function joinRoom(guildId: string, roomId: number, topic?: string): Promise<{ status: string }> {
+  return fetchAPI(`/api/rooms/${guildId}/${roomId}/join`, {
+    method: "POST",
+    body: JSON.stringify({ topic: topic || "" }),
+  });
+}
+
+export function leaveRoom(guildId: string, roomId: number): Promise<{ status: string; duration_minutes: number }> {
+  return fetchAPI(`/api/rooms/${guildId}/${roomId}/leave`, { method: "POST" });
+}
+
+// === Server Analytics ===
+export interface EngagementData {
+  date: string;
+  active_users: number;
+  sessions: number;
+  total_minutes: number;
+}
+
+export interface AtRiskMember {
+  user_id: number;
+  username: string;
+  best_streak: number;
+  last_study_date: string | null;
+  days_inactive: number;
+  risk_score: number;
+}
+
+export interface CommunityHealth {
+  score: number;
+  dau_mau_ratio: number;
+  retention_rate: number;
+  avg_streak: number;
+  churn_rate: number;
+}
+
+export interface TopicAnalysis {
+  topic: string;
+  count: number;
+  total_minutes: number;
+  this_week: number;
+  last_week: number;
+}
+
+export interface OptimalTime {
+  day_of_week: number;
+  hour: number;
+  session_count: number;
+  total_minutes: number;
+}
+
+export function getEngagement(guildId: string, days = 30): Promise<EngagementData[]> {
+  return fetchAPI<EngagementData[]>(`/api/server/${guildId}/analytics/engagement?days=${days}`);
+}
+
+export function getAtRiskMembers(guildId: string): Promise<AtRiskMember[]> {
+  return fetchAPI<AtRiskMember[]>(`/api/server/${guildId}/analytics/at-risk`);
+}
+
+export function getCommunityHealth(guildId: string): Promise<CommunityHealth> {
+  return fetchAPI<CommunityHealth>(`/api/server/${guildId}/analytics/health`);
+}
+
+export function getTopicAnalysis(guildId: string): Promise<TopicAnalysis[]> {
+  return fetchAPI<TopicAnalysis[]>(`/api/server/${guildId}/analytics/topics`);
+}
+
+export function getOptimalTimes(guildId: string): Promise<OptimalTime[]> {
+  return fetchAPI<OptimalTime[]>(`/api/server/${guildId}/analytics/optimal-times`);
+}
+
+export function createAction(
+  guildId: string,
+  actionType: string,
+  actionData: Record<string, unknown>,
+  scheduledFor?: string
+): Promise<{ status: string; id?: number }> {
+  return fetchAPI(`/api/server/${guildId}/actions`, {
+    method: "POST",
+    body: JSON.stringify({
+      action_type: actionType,
+      action_data: actionData,
+      scheduled_for: scheduledFor,
+    }),
+  });
+}

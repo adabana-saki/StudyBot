@@ -120,3 +120,7 @@ class BuddyManager:
 
     async def end_match(self, match_id: int) -> None:
         await self.repository.end_match(match_id)
+
+    async def check_concurrent_session(self, user_id: int) -> bool:
+        """バディが同時にセッション中かチェック"""
+        return await self.repository.has_active_buddy_session(user_id)

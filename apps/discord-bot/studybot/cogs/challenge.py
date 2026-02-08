@@ -22,9 +22,11 @@ class ChallengeCog(commands.Cog):
 
     async def cog_load(self) -> None:
         self.challenge_check.start()
+        self.weekly_event_generator.start()
 
     async def cog_unload(self) -> None:
         self.challenge_check.cancel()
+        self.weekly_event_generator.cancel()
 
     challenge_group = app_commands.Group(name="challenge", description="コホートチャレンジ")
 
@@ -246,6 +248,36 @@ class ChallengeCog(commands.Cog):
 
     @challenge_check.before_loop
     async def before_challenge_check(self):
+        await self.bot.wait_until_ready()
+
+    @tasks.loop(hours=24)
+    async def weekly_event_generator(self):
+        """毎日チェック: 月曜なら週次イベントを自動生成"""
+        from datetime import date as date_type
+        if date_type.today().weekday() != 0:  # 月曜のみ
+            return
+
+        for guild in self.bot.guilds:
+            try:
+                result = await self.manager.auto_generate_weekly_event(
+                    guild_id=guild.id,
+                    creator_id=self.bot.user.id,
+                )
+                if result:
+                    logger.info(
+                        "週次イベント自動生成: guild=%d, challenge=%s",
+                        guild.id,
+                        result["name"],
+                    )
+            except Exception:
+                logger.warning(
+                    "週次イベント生成失敗: guild=%d",
+                    guild.id,
+                    exc_info=True,
+                )
+
+    @weekly_event_generator.before_loop
+    async def before_weekly_event_generator(self):
         await self.bot.wait_until_ready()
 
 

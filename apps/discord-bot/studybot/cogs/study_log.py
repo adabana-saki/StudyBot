@@ -74,13 +74,23 @@ class StudyLogCog(commands.Cog):
             except Exception:
                 logger.warning("イベント発行失敗", exc_info=True)
 
-        # XP付与
+        # XP付与 (自己ベストチェックはaward_study_log_xp内で実行)
         gamification = self.bot.get_cog("GamificationCog")
         if gamification:
             try:
-                await gamification.award_study_log_xp(interaction.user.id, interaction.channel)
+                await gamification.award_study_log_xp(interaction.user.id, interaction.channel, duration)
             except Exception:
                 logger.warning("学習ログのXP付与に失敗", exc_info=True)
+
+        # チームクエスト連携: 学習時間
+        team_cog = self.bot.get_cog("TeamCog")
+        if team_cog:
+            try:
+                await team_cog.manager.update_team_quest_progress(
+                    interaction.user.id, "team_study_minutes", duration
+                )
+            except Exception:
+                logger.debug("チームクエスト更新失敗", exc_info=True)
 
         # フォーカスロック連携（レベル4: 学習完了コード）
         nudge_cog = self.bot.get_cog("PhoneNudgeCog")

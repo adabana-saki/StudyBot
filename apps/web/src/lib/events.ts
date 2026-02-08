@@ -21,6 +21,15 @@ export const EVENT_TYPES = {
   CHALLENGE_CHECKIN: "challenge_checkin",
   SESSION_SYNC: "session_sync",
   INSIGHTS_READY: "insights_ready",
+  // Phase 8
+  SOCIAL_REACTION: "social_reaction",
+  SOCIAL_COMMENT: "social_comment",
+  BATTLE_START: "battle_start",
+  BATTLE_SCORE_UPDATE: "battle_score_update",
+  BATTLE_COMPLETE: "battle_complete",
+  ROOM_JOIN: "room_join",
+  ROOM_LEAVE: "room_leave",
+  ROOM_GOAL_REACHED: "room_goal_reached",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -105,4 +114,13 @@ export const EVENT_LABELS: Record<string, { label: string; icon: string; color: 
   challenge_checkin: { label: "チェックイン", icon: "📋", color: "text-amber-300" },
   session_sync: { label: "セッション同期", icon: "🔄", color: "text-teal-400" },
   insights_ready: { label: "インサイト完成", icon: "🧠", color: "text-violet-400" },
+  // Phase 8
+  social_reaction: { label: "リアクション", icon: "👏", color: "text-pink-400" },
+  social_comment: { label: "コメント", icon: "💬", color: "text-pink-300" },
+  battle_start: { label: "バトル開始", icon: "⚔️", color: "text-red-400" },
+  battle_score_update: { label: "スコア更新", icon: "📊", color: "text-red-300" },
+  battle_complete: { label: "バトル完了", icon: "🏆", color: "text-yellow-400" },
+  room_join: { label: "ルーム参加", icon: "🚪", color: "text-emerald-400" },
+  room_leave: { label: "ルーム退出", icon: "🚪", color: "text-emerald-300" },
+  room_goal_reached: { label: "目標達成", icon: "🎉", color: "text-emerald-500" },
 };

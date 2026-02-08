@@ -83,7 +83,8 @@ class ConfirmPurchaseView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
-                "この操作はあなたのものではありません。", ephemeral=True
+                embed=error_embed("エラー", "この操作はあなたのものではありません。"),
+                ephemeral=True,
             )
             return False
         return True

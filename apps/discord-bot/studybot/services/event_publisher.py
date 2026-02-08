@@ -426,3 +426,157 @@ class EventPublisher:
                 "insights_count": insights_count,
             },
         )
+
+    # --- Phase 8: Social ---
+
+    async def emit_social_reaction(
+        self,
+        *,
+        event_id: int,
+        target_user_id: int,
+        actor_user_id: int,
+        actor_username: str,
+        reaction_type: str,
+        guild_id: int = 0,
+    ) -> None:
+        await self._emit(
+            "social_reaction",
+            {
+                "event_id": event_id,
+                "target_user_id": target_user_id,
+                "actor_user_id": actor_user_id,
+                "actor_username": actor_username,
+                "reaction_type": reaction_type,
+                "guild_id": guild_id,
+            },
+        )
+
+    async def emit_social_comment(
+        self,
+        *,
+        event_id: int,
+        target_user_id: int,
+        actor_user_id: int,
+        actor_username: str,
+        body: str,
+        guild_id: int = 0,
+    ) -> None:
+        await self._emit(
+            "social_comment",
+            {
+                "event_id": event_id,
+                "target_user_id": target_user_id,
+                "actor_user_id": actor_user_id,
+                "actor_username": actor_username,
+                "body": body,
+                "guild_id": guild_id,
+            },
+        )
+
+    # --- Phase 8: Battle ---
+
+    async def emit_battle_start(
+        self,
+        *,
+        battle_id: int,
+        guild_id: int,
+        team_a_name: str,
+        team_b_name: str,
+    ) -> None:
+        await self._emit(
+            "battle_start",
+            {
+                "battle_id": battle_id,
+                "guild_id": guild_id,
+                "team_a_name": team_a_name,
+                "team_b_name": team_b_name,
+            },
+        )
+
+    async def emit_battle_score_update(
+        self,
+        *,
+        battle_id: int,
+        guild_id: int,
+        team_a_score: int,
+        team_b_score: int,
+    ) -> None:
+        await self._emit(
+            "battle_score_update",
+            {
+                "battle_id": battle_id,
+                "guild_id": guild_id,
+                "team_a_score": team_a_score,
+                "team_b_score": team_b_score,
+            },
+        )
+
+    async def emit_battle_complete(
+        self,
+        *,
+        battle_id: int,
+        guild_id: int,
+        winner_team_id: int | None,
+    ) -> None:
+        await self._emit(
+            "battle_complete",
+            {
+                "battle_id": battle_id,
+                "guild_id": guild_id,
+                "winner_team_id": winner_team_id,
+            },
+        )
+
+    # --- Phase 8: Room ---
+
+    async def emit_room_join(
+        self,
+        *,
+        room_id: int,
+        user_id: int,
+        guild_id: int,
+        platform: str,
+        topic: str = "",
+    ) -> None:
+        await self._emit(
+            "room_join",
+            {
+                "room_id": room_id,
+                "user_id": user_id,
+                "guild_id": guild_id,
+                "platform": platform,
+                "topic": topic,
+            },
+        )
+
+    async def emit_room_leave(
+        self,
+        *,
+        room_id: int,
+        user_id: int,
+        guild_id: int,
+        duration_minutes: int = 0,
+    ) -> None:
+        await self._emit(
+            "room_leave",
+            {
+                "room_id": room_id,
+                "user_id": user_id,
+                "guild_id": guild_id,
+                "duration_minutes": duration_minutes,
+            },
+        )
+
+    async def emit_room_goal_reached(
+        self,
+        *,
+        room_id: int,
+        guild_id: int,
+    ) -> None:
+        await self._emit(
+            "room_goal_reached",
+            {
+                "room_id": room_id,
+                "guild_id": guild_id,
+            },
+        )

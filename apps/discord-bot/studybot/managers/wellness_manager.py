@@ -86,6 +86,69 @@ class WellnessManager:
             "recent_logs": recent_logs,
         }
 
+    async def get_recommendation(self, user_id: int) -> dict:
+        """ウェルネスデータに基づく学習推奨を生成"""
+        today_log = await self.repository.get_today_log(user_id)
+        averages = await self.repository.get_averages(user_id, days=7)
+
+        if not averages and not today_log:
+            return {
+                "has_data": False,
+                "message": "ウェルネスデータがありません。\n`/wellness check` で今の状態を記録しましょう！",
+            }
+
+        # 今日のデータ or 直近平均を使用
+        mood = int(today_log["mood"]) if today_log else round(float(averages["avg_mood"]))
+        energy = int(today_log["energy"]) if today_log else round(float(averages["avg_energy"]))
+        stress = int(today_log["stress"]) if today_log else round(float(averages["avg_stress"]))
+
+        # 推奨セッション時間
+        if energy >= 4 and stress <= 2:
+            recommended_minutes = 50
+            session_type = "deep_focus"
+            session_label = "ディープフォーカス（50分）"
+            advice = "エネルギーが高く、ストレスも低い最高のコンディションです！長めのセッションに挑戦しましょう。"
+        elif energy >= 3 and stress <= 3:
+            recommended_minutes = 25
+            session_type = "standard"
+            session_label = "スタンダード（25分）"
+            advice = "バランスの取れた状態です。通常のポモドーロで学習しましょう。"
+        elif energy <= 2 or stress >= 4:
+            recommended_minutes = 15
+            session_type = "light"
+            session_label = "ライトセッション（15分）"
+            advice = "少し疲れているようです。短めのセッションで無理なく学習しましょう。休憩も大切に。"
+        else:
+            recommended_minutes = 20
+            session_type = "moderate"
+            session_label = "モデレート（20分）"
+            advice = "適度なペースで学習しましょう。気分転換にストレッチもおすすめです。"
+
+        # 気分が低い場合の追加アドバイス
+        extra_tips = []
+        if mood <= 2:
+            extra_tips.append("💡 気分が優れない時は、好きな科目から始めるのがおすすめです")
+        if stress >= 4:
+            extra_tips.append("🧘 学習前に深呼吸を3回してリラックスしましょう")
+        if energy <= 2:
+            extra_tips.append("☕ 水分補給や軽いストレッチで体を起こしてから始めましょう")
+
+        return {
+            "has_data": True,
+            "mood": mood,
+            "energy": energy,
+            "stress": stress,
+            "mood_label": MOOD_LABELS.get(mood, ""),
+            "energy_label": ENERGY_LABELS.get(energy, ""),
+            "stress_label": STRESS_LABELS.get(stress, ""),
+            "recommended_minutes": recommended_minutes,
+            "session_type": session_type,
+            "session_label": session_label,
+            "advice": advice,
+            "extra_tips": extra_tips,
+            "source": "today" if today_log else "average",
+        }
+
     async def generate_trend_chart(self, user_id: int, days: int = 14) -> io.BytesIO | None:
         """ウェルネストレンドチャートを生成"""
         data = await self.repository.get_daily_averages(user_id, days)

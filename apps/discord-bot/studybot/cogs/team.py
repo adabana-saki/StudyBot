@@ -202,6 +202,86 @@ class TeamCog(commands.Cog):
 
         await interaction.followup.send(embed=embed)
 
+    @team_group.command(name="quest", description="チームクエストを表示")
+    @app_commands.describe(team_id="チームID")
+    async def team_quest(
+        self, interaction: discord.Interaction, team_id: int
+    ):
+        await interaction.response.defer()
+
+        team = await self.manager.repository.get_team(team_id)
+        if not team:
+            await interaction.followup.send(
+                embed=error_embed("チームクエスト", "チームが見つかりません")
+            )
+            return
+
+        quests = await self.manager.get_team_quests(team_id)
+
+        embed = discord.Embed(
+            title=f"📋 {team['name']} のチームクエスト",
+            description="チームメンバー全員の活動で進捗します",
+            color=COLORS["team"],
+        )
+
+        for q in quests:
+            qt = q.get("quest_type", "")
+            label = self.manager.get_team_quest_label(qt)
+            unit = self.manager.get_team_quest_unit(qt)
+            target = q.get("target", 0)
+            progress = q.get("progress", 0)
+            completed = q.get("completed", False)
+            claimed = q.get("claimed", False)
+
+            if claimed:
+                status = "🎁 受取済"
+            elif completed:
+                status = "✅ 完了（/team quest_claim で受取）"
+            else:
+                pct = int(progress / target * 100) if target > 0 else 0
+                filled = int(10 * min(1.0, pct / 100))
+                bar = "\u2588" * filled + "\u2591" * (10 - filled)
+                status = f"[{bar}] {progress}/{target}{unit}"
+
+            quest_id = q.get("id", "?")
+            embed.add_field(
+                name=f"#{quest_id} {label} ({target}{unit})",
+                value=(
+                    f"{status}\n"
+                    f"報酬: {q.get('reward_xp', 0)} XP + {q.get('reward_coins', 0)} 🪙"
+                ),
+                inline=False,
+            )
+
+        embed.set_footer(text="チームメンバーの学習が自動で反映されます")
+        await interaction.followup.send(embed=embed)
+
+    @team_group.command(name="quest_claim", description="チームクエスト報酬を受け取る")
+    @app_commands.describe(team_id="チームID", quest_id="クエストID")
+    async def team_quest_claim(
+        self, interaction: discord.Interaction, team_id: int, quest_id: int
+    ):
+        await interaction.response.defer()
+        result = await self.manager.claim_team_quest(team_id, quest_id)
+
+        if "error" in result:
+            await interaction.followup.send(
+                embed=error_embed("チームクエスト報酬", result["error"])
+            )
+            return
+
+        label = self.manager.get_team_quest_label(result["quest_type"])
+        embed = team_embed(
+            "チームクエスト報酬受取",
+            (
+                f"**{label}** の報酬を受け取りました！\n\n"
+                f"**+{result['reward_xp']} XP**\n"
+                f"**+{result['reward_coins']} 🪙 StudyCoin**\n\n"
+                "チーム全員に反映されます"
+            ),
+        )
+        await interaction.followup.send(embed=embed)
+
     @team_group.command(name="members", description="チームメンバーを表示")
     @app_commands.describe(team_id="チームID")
     async def team_members(

@@ -222,9 +222,10 @@ ADMIN_PERMISSIONS = {
 HELP_CATEGORIES = {
     "study": "📚 学習",
     "gamification": "🎮 ゲーミフィケーション",
-    "ai": "🤖 AI",
-    "wellness": "🧘 ウェルネス",
-    "settings": "⚙️ 設定",
+    "social": "👥 ソーシャル",
+    "ai": "🤖 AI・学習支援",
+    "wellness": "🧘 ウェルネス・通知",
+    "settings": "⚙️ 設定・管理",
 }
 
 # XP報酬（追加）

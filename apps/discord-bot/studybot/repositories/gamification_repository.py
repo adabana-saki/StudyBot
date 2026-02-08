@@ -1,7 +1,7 @@
 """ゲーミフィケーション DB操作"""
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 from studybot.repositories.base import BaseRepository
 
@@ -201,3 +201,368 @@ class GamificationRepository(BaseRepository):
                 limit,
             )
         return [dict(row) for row in rows]
+
+    # --- 離脱検知 ---
+
+    async def get_churned_users(
+        self, min_streak: int = 10, inactive_days: int = 2
+    ) -> list[dict]:
+        """ストリーク後に学習が途絶えたユーザーを取得"""
+        cutoff = date.today() - timedelta(days=inactive_days)
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT user_id, streak_days,
+                       COALESCE(best_streak, streak_days) AS best_streak,
+                       last_study_date
+                FROM user_levels
+                WHERE last_study_date <= $1
+                  AND COALESCE(best_streak, streak_days) >= $2
+                """,
+                cutoff,
+                min_streak,
+            )
+        return [dict(row) for row in rows]
+
+    # --- フォーカススコア ---
+
+    async def get_focus_score_data(self, user_id: int, days: int = 14) -> dict:
+        """フォーカススコア計算用データを取得"""
+        async with self.db_pool.acquire() as conn:
+            cutoff = datetime.now(UTC) - timedelta(days=days)
+
+            # ポモドーロ完了率
+            pomo = await conn.fetchrow(
+                """
+                SELECT COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE state = 'completed') AS completed
+                FROM pomodoro_sessions
+                WHERE user_id = $1 AND created_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+            # フォーカスセッション完了率
+            focus = await conn.fetchrow(
+                """
+                SELECT COUNT(*) AS total,
+                       COUNT(*) FILTER (WHERE state = 'completed') AS completed
+                FROM focus_sessions
+                WHERE user_id = $1 AND started_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+            # フォーカスロック成功率
+            lock = await conn.fetchrow(
+                """
+                SELECT COUNT(*) FILTER (WHERE state = 'completed') AS completed,
+                       COUNT(*) FILTER (WHERE state IN ('completed', 'broken')) AS total
+                FROM phone_lock_sessions
+                WHERE user_id = $1 AND started_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+            # 学習一貫性 (過去N日のうち学習した日数)
+            consistency = await conn.fetchrow(
+                """
+                SELECT COUNT(DISTINCT DATE(logged_at)) AS study_days
+                FROM study_logs
+                WHERE user_id = $1 AND logged_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+        pomo_total = pomo["total"] if pomo else 0
+        focus_total = focus["total"] if focus else 0
+        session_total = pomo_total + focus_total
+        session_completed = (
+            (pomo["completed"] if pomo else 0) + (focus["completed"] if focus else 0)
+        )
+
+        return {
+            "session_total": session_total,
+            "session_completed": session_completed,
+            "lock_total": lock["total"] if lock else 0,
+            "lock_completed": lock["completed"] if lock else 0,
+            "study_days": consistency["study_days"] if consistency else 0,
+            "period_days": days,
+        }
+
+    # --- 自己ベスト ---
+
+    async def update_personal_bests(
+        self,
+        user_id: int,
+        streak: int | None = None,
+        daily_minutes: int | None = None,
+        weekly_minutes: int | None = None,
+    ) -> dict:
+        """自己ベストを更新（GREATESTで比較）。更新された項目を返す"""
+        updated = {}
+        async with self.db_pool.acquire() as conn:
+            if streak is not None:
+                result = await conn.execute(
+                    """
+                    UPDATE user_levels
+                    SET best_streak = GREATEST(COALESCE(best_streak, 0), $2)
+                    WHERE user_id = $1 AND COALESCE(best_streak, 0) < $2
+                    """,
+                    user_id,
+                    streak,
+                )
+                if result != "UPDATE 0":
+                    updated["best_streak"] = streak
+
+            if daily_minutes is not None:
+                result = await conn.execute(
+                    """
+                    UPDATE user_levels
+                    SET best_daily_minutes = GREATEST(COALESCE(best_daily_minutes, 0), $2)
+                    WHERE user_id = $1 AND COALESCE(best_daily_minutes, 0) < $2
+                    """,
+                    user_id,
+                    daily_minutes,
+                )
+                if result != "UPDATE 0":
+                    updated["best_daily_minutes"] = daily_minutes
+
+            if weekly_minutes is not None:
+                result = await conn.execute(
+                    """
+                    UPDATE user_levels
+                    SET best_weekly_minutes = GREATEST(COALESCE(best_weekly_minutes, 0), $2)
+                    WHERE user_id = $1 AND COALESCE(best_weekly_minutes, 0) < $2
+                    """,
+                    user_id,
+                    weekly_minutes,
+                )
+                if result != "UPDATE 0":
+                    updated["best_weekly_minutes"] = weekly_minutes
+
+        return updated
+
+    async def get_personal_bests(self, user_id: int) -> dict:
+        """全自己ベスト記録を取得"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT COALESCE(best_streak, 0) AS best_streak,
+                       COALESCE(best_daily_minutes, 0) AS best_daily_minutes,
+                       COALESCE(best_weekly_minutes, 0) AS best_weekly_minutes
+                FROM user_levels
+                WHERE user_id = $1
+                """,
+                user_id,
+            )
+        if not row:
+            return {"best_streak": 0, "best_daily_minutes": 0, "best_weekly_minutes": 0}
+        return dict(row)
+
+    async def get_today_study_minutes(self, user_id: int) -> int:
+        """今日の合計学習時間（分）を取得"""
+        async with self.db_pool.acquire() as conn:
+            val = await conn.fetchval(
+                """
+                SELECT COALESCE(SUM(duration_minutes), 0)
+                FROM study_logs
+                WHERE user_id = $1 AND logged_at >= CURRENT_DATE
+                """,
+                user_id,
+            )
+        return val or 0
+
+    async def get_week_study_minutes(self, user_id: int) -> int:
+        """今週の合計学習時間（分）を取得"""
+        async with self.db_pool.acquire() as conn:
+            val = await conn.fetchval(
+                """
+                SELECT COALESCE(SUM(duration_minutes), 0)
+                FROM study_logs
+                WHERE user_id = $1
+                  AND logged_at >= date_trunc('week', CURRENT_DATE)
+                """,
+                user_id,
+            )
+        return val or 0
+
+    # --- シーズンパス ---
+
+    async def get_active_season(self) -> dict | None:
+        """アクティブなシーズンを取得"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT * FROM season_passes
+                WHERE status = 'active'
+                  AND start_date <= CURRENT_DATE
+                  AND end_date >= CURRENT_DATE
+                ORDER BY start_date DESC
+                LIMIT 1
+                """
+            )
+            return dict(row) if row else None
+
+    async def create_season(
+        self, name: str, start_date: date, end_date: date
+    ) -> int:
+        async with self.db_pool.acquire() as conn:
+            return await conn.fetchval(
+                """
+                INSERT INTO season_passes (name, start_date, end_date, status)
+                VALUES ($1, $2, $3, 'active')
+                RETURNING id
+                """,
+                name,
+                start_date,
+                end_date,
+            )
+
+    async def get_season_progress(self, user_id: int, season_id: int) -> dict | None:
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                SELECT * FROM season_pass_progress
+                WHERE user_id = $1 AND season_id = $2
+                """,
+                user_id,
+                season_id,
+            )
+            return dict(row) if row else None
+
+    async def upsert_season_progress(
+        self, user_id: int, season_id: int, xp_delta: int
+    ) -> dict:
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO season_pass_progress (user_id, season_id, total_xp, tier)
+                VALUES ($1, $2, $3, 0)
+                ON CONFLICT (user_id, season_id) DO UPDATE SET
+                    total_xp = season_pass_progress.total_xp + $3,
+                    updated_at = NOW()
+                RETURNING *
+                """,
+                user_id,
+                season_id,
+                xp_delta,
+            )
+            return dict(row) if row else {}
+
+    async def update_season_tier(
+        self, user_id: int, season_id: int, tier: int
+    ) -> None:
+        async with self.db_pool.acquire() as conn:
+            await conn.execute(
+                """
+                UPDATE season_pass_progress
+                SET tier = $3, last_claimed_tier = $3, updated_at = NOW()
+                WHERE user_id = $1 AND season_id = $2
+                """,
+                user_id,
+                season_id,
+                tier,
+            )
+
+    async def get_season_leaderboard(
+        self, season_id: int, limit: int = 10
+    ) -> list[dict]:
+        async with self.db_pool.acquire() as conn:
+            rows = await conn.fetch(
+                """
+                SELECT sp.*, u.username
+                FROM season_pass_progress sp
+                JOIN users u ON u.user_id = sp.user_id
+                WHERE sp.season_id = $1
+                ORDER BY sp.total_xp DESC
+                LIMIT $2
+                """,
+                season_id,
+                limit,
+            )
+            return [dict(r) for r in rows]
+
+    # --- 学習タイミング分析 ---
+
+    async def get_study_timing_data(self, user_id: int, days: int = 30) -> dict:
+        """時間帯別・曜日別の学習パターンを取得"""
+        async with self.db_pool.acquire() as conn:
+            cutoff = datetime.now(UTC) - timedelta(days=days)
+
+            # 時間帯別の学習時間
+            hourly = await conn.fetch(
+                """
+                SELECT EXTRACT(HOUR FROM logged_at) AS hour,
+                       SUM(duration_minutes) AS total_minutes,
+                       COUNT(*) AS session_count
+                FROM study_logs
+                WHERE user_id = $1 AND logged_at >= $2
+                GROUP BY EXTRACT(HOUR FROM logged_at)
+                ORDER BY hour
+                """,
+                user_id,
+                cutoff,
+            )
+
+            # 曜日別の学習時間
+            daily = await conn.fetch(
+                """
+                SELECT EXTRACT(DOW FROM logged_at) AS dow,
+                       SUM(duration_minutes) AS total_minutes,
+                       COUNT(*) AS session_count
+                FROM study_logs
+                WHERE user_id = $1 AND logged_at >= $2
+                GROUP BY EXTRACT(DOW FROM logged_at)
+                ORDER BY dow
+                """,
+                user_id,
+                cutoff,
+            )
+
+            # ポモドーロの平均完了時間
+            avg_pomo = await conn.fetchrow(
+                """
+                SELECT AVG(total_work_seconds) / 60.0 AS avg_work_minutes,
+                       COUNT(*) AS total_completed
+                FROM pomodoro_sessions
+                WHERE user_id = $1 AND state = 'completed' AND created_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+        return {
+            "hourly": [dict(r) for r in hourly],
+            "daily": [dict(r) for r in daily],
+            "avg_pomo_minutes": float(avg_pomo["avg_work_minutes"] or 0) if avg_pomo else 0,
+            "total_completed_pomos": avg_pomo["total_completed"] if avg_pomo else 0,
+        }
+
+    # --- ウェルカムガイド ---
+
+    async def ensure_user_level_with_flag(self, user_id: int) -> tuple[dict, bool]:
+        """ユーザーレベル確保 + 新規ユーザーフラグ"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO user_levels (user_id, xp, level, streak_days)
+                VALUES ($1, 0, 1, 0)
+                ON CONFLICT (user_id) DO NOTHING
+                RETURNING *
+                """,
+                user_id,
+            )
+            if row:
+                # INSERT成功 = 新規ユーザー
+                return dict(row), True
+            # 既存ユーザー
+            row = await conn.fetchrow(
+                "SELECT * FROM user_levels WHERE user_id = $1",
+                user_id,
+            )
+            return dict(row), False

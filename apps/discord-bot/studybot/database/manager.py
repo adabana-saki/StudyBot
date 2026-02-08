@@ -604,6 +604,42 @@ class DatabaseManager:
                     PRIMARY KEY (team_id, user_id)
                 );
 
+                -- Phase 7: チームクエスト
+                CREATE TABLE IF NOT EXISTS team_quests (
+                    id SERIAL PRIMARY KEY,
+                    team_id INT NOT NULL REFERENCES study_teams(id) ON DELETE CASCADE,
+                    quest_type TEXT NOT NULL,
+                    target INT NOT NULL,
+                    progress INT DEFAULT 0,
+                    reward_xp INT NOT NULL,
+                    reward_coins INT NOT NULL,
+                    completed BOOLEAN DEFAULT FALSE,
+                    claimed BOOLEAN DEFAULT FALSE,
+                    quest_date DATE NOT NULL DEFAULT CURRENT_DATE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 7: シーズンパス
+                CREATE TABLE IF NOT EXISTS season_passes (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    status VARCHAR(20) DEFAULT 'active',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS season_pass_progress (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    season_id INT NOT NULL REFERENCES season_passes(id) ON DELETE CASCADE,
+                    total_xp INT DEFAULT 0,
+                    tier INT DEFAULT 0,
+                    last_claimed_tier INT DEFAULT 0,
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, season_id)
+                );
+
                 -- ラーニングパス
                 CREATE TABLE IF NOT EXISTS learning_paths (
                     id SERIAL PRIMARY KEY,
@@ -623,6 +659,111 @@ class DatabaseManager:
                     milestone_index INT NOT NULL,
                     completed_at TIMESTAMPTZ DEFAULT NOW(),
                     UNIQUE(user_id, path_id, milestone_index)
+                );
+
+                -- Phase 8: ソーシャルタイムライン
+                CREATE TABLE IF NOT EXISTS activity_reactions (
+                    id SERIAL PRIMARY KEY,
+                    event_id BIGINT NOT NULL
+                        REFERENCES activity_events(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    reaction_type VARCHAR(20) NOT NULL DEFAULT 'applaud',
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(event_id, user_id, reaction_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS activity_comments (
+                    id SERIAL PRIMARY KEY,
+                    event_id BIGINT NOT NULL
+                        REFERENCES activity_events(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 500),
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 8: チームバトル
+                CREATE TABLE IF NOT EXISTS team_battles (
+                    id SERIAL PRIMARY KEY,
+                    guild_id BIGINT NOT NULL,
+                    team_a_id INT NOT NULL
+                        REFERENCES study_teams(id) ON DELETE CASCADE,
+                    team_b_id INT NOT NULL
+                        REFERENCES study_teams(id) ON DELETE CASCADE,
+                    goal_type VARCHAR(30) NOT NULL DEFAULT 'study_minutes',
+                    duration_days INT NOT NULL
+                        CHECK (duration_days BETWEEN 1 AND 30),
+                    start_date DATE NOT NULL,
+                    end_date DATE NOT NULL,
+                    team_a_score INT DEFAULT 0,
+                    team_b_score INT DEFAULT 0,
+                    winner_team_id INT,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    xp_multiplier FLOAT DEFAULT 2.0,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS battle_contributions (
+                    id SERIAL PRIMARY KEY,
+                    battle_id INT NOT NULL
+                        REFERENCES team_battles(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    team_id INT NOT NULL,
+                    contribution INT DEFAULT 0,
+                    source VARCHAR(10) DEFAULT 'discord',
+                    recorded_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 8: スケジュールアクション
+                CREATE TABLE IF NOT EXISTS scheduled_actions (
+                    id SERIAL PRIMARY KEY,
+                    guild_id BIGINT NOT NULL,
+                    action_type VARCHAR(50) NOT NULL,
+                    action_data JSONB NOT NULL,
+                    scheduled_for TIMESTAMPTZ NOT NULL,
+                    executed BOOLEAN DEFAULT FALSE,
+                    result TEXT,
+                    created_by BIGINT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 8: スタディルーム
+                CREATE TABLE IF NOT EXISTS study_rooms (
+                    id SERIAL PRIMARY KEY,
+                    guild_id BIGINT NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    description TEXT DEFAULT '',
+                    theme VARCHAR(30) DEFAULT 'general',
+                    vc_channel_id BIGINT,
+                    collective_goal_minutes INT DEFAULT 0,
+                    collective_progress_minutes INT DEFAULT 0,
+                    max_occupants INT DEFAULT 20,
+                    ambient_sound VARCHAR(50) DEFAULT 'none',
+                    is_permanent BOOLEAN DEFAULT FALSE,
+                    state VARCHAR(20) DEFAULT 'active',
+                    created_by BIGINT,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS room_members (
+                    id SERIAL PRIMARY KEY,
+                    room_id INT NOT NULL
+                        REFERENCES study_rooms(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    platform VARCHAR(10) NOT NULL,
+                    topic VARCHAR(200) DEFAULT '',
+                    joined_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(room_id, user_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS room_history (
+                    id SERIAL PRIMARY KEY,
+                    room_id INT NOT NULL
+                        REFERENCES study_rooms(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL,
+                    platform VARCHAR(10) NOT NULL,
+                    joined_at TIMESTAMPTZ NOT NULL,
+                    left_at TIMESTAMPTZ DEFAULT NOW(),
+                    duration_minutes INT DEFAULT 0
                 );
                 """
             )
@@ -731,6 +872,14 @@ class DatabaseManager:
                 CREATE INDEX IF NOT EXISTS idx_path_milestones_user
                     ON path_milestones(user_id, path_id);
 
+                -- Phase 7 indexes
+                CREATE INDEX IF NOT EXISTS idx_team_quests_team_date
+                    ON team_quests(team_id, quest_date);
+                CREATE INDEX IF NOT EXISTS idx_season_pass_progress_user
+                    ON season_pass_progress(user_id, season_id);
+                CREATE INDEX IF NOT EXISTS idx_season_passes_status
+                    ON season_passes(status, start_date);
+
                 -- Missing indexes
                 CREATE INDEX IF NOT EXISTS idx_phone_nudges_user
                     ON phone_nudges(user_id);
@@ -738,6 +887,31 @@ class DatabaseManager:
                     ON nudge_history(user_id);
                 CREATE INDEX IF NOT EXISTS idx_study_raids_creator
                     ON study_raids(creator_id);
+
+                -- Phase 8: Social timeline indexes
+                CREATE INDEX IF NOT EXISTS idx_reactions_event
+                    ON activity_reactions(event_id);
+                CREATE INDEX IF NOT EXISTS idx_comments_event
+                    ON activity_comments(event_id);
+
+                -- Phase 8: Team battle indexes
+                CREATE INDEX IF NOT EXISTS idx_battles_guild_status
+                    ON team_battles(guild_id, status);
+                CREATE INDEX IF NOT EXISTS idx_battle_contrib
+                    ON battle_contributions(battle_id, team_id);
+
+                -- Phase 8: Scheduled actions indexes
+                CREATE INDEX IF NOT EXISTS idx_sched_actions_pending
+                    ON scheduled_actions(executed, scheduled_for)
+                    WHERE executed = FALSE;
+
+                -- Phase 8: Study room indexes
+                CREATE INDEX IF NOT EXISTS idx_rooms_guild
+                    ON study_rooms(guild_id, state);
+                CREATE INDEX IF NOT EXISTS idx_room_members_room
+                    ON room_members(room_id);
+                CREATE INDEX IF NOT EXISTS idx_room_members_user
+                    ON room_members(user_id);
                 """
             )
 
@@ -841,6 +1015,23 @@ class DatabaseManager:
                 ON CONFLICT DO NOTHING;
                 """
             )
+
+            # Phase 7: user_levels カラム追加 (自己ベスト記録)
+            for col, default in [
+                ("best_streak", "0"),
+                ("best_daily_minutes", "0"),
+                ("best_weekly_minutes", "0"),
+            ]:
+                await conn.execute(
+                    f"""
+                    DO $$
+                    BEGIN
+                        ALTER TABLE user_levels ADD COLUMN {col} INT DEFAULT {default};
+                    EXCEPTION
+                        WHEN duplicate_column THEN NULL;
+                    END $$;
+                    """
+                )
 
             logger.info("テーブル作成完了")
 

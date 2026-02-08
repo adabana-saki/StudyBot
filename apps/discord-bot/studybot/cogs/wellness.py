@@ -114,6 +114,56 @@ class WellnessCog(commands.Cog):
         modal = WellnessModal(self.manager)
         await interaction.response.send_modal(modal)
 
+    @wellness_group.command(name="recommend", description="ウェルネスに基づく学習推奨")
+    async def wellness_recommend(self, interaction: discord.Interaction):
+        """ウェルネスデータに基づいて最適な学習セッションを推奨"""
+        await interaction.response.defer(ephemeral=True)
+
+        result = await self.manager.get_recommendation(interaction.user.id)
+
+        if not result["has_data"]:
+            await interaction.followup.send(
+                embed=wellness_embed("ウェルネス推奨", result["message"]),
+                ephemeral=True,
+            )
+            return
+
+        source_label = "今日の記録" if result["source"] == "today" else "過去7日間の平均"
+
+        embed = discord.Embed(
+            title="🧘 ウェルネスベース学習推奨",
+            description=f"*{source_label}に基づく推奨です*",
+            color=COLORS["wellness"],
+        )
+
+        embed.add_field(
+            name="現在の状態",
+            value=(
+                f"気分: {result['mood_label']} ({result['mood']}/5)\n"
+                f"エネルギー: {result['energy_label']} ({result['energy']}/5)\n"
+                f"ストレス: {result['stress_label']} ({result['stress']}/5)"
+            ),
+            inline=False,
+        )
+
+        embed.add_field(
+            name=f"🍅 推奨セッション: {result['session_label']}",
+            value=result["advice"],
+            inline=False,
+        )
+
+        if result["extra_tips"]:
+            embed.add_field(
+                name="💡 追加アドバイス",
+                value="\n".join(result["extra_tips"]),
+                inline=False,
+            )
+
+        embed.set_footer(
+            text=f"/pomodoro start work_min:{result['recommended_minutes']} で開始"
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
     @wellness_group.command(name="stats", description="ウェルネス統計を表示")
     async def wellness_stats(self, interaction: discord.Interaction):
         """ウェルネストレンドチャート + 統計情報を表示"""

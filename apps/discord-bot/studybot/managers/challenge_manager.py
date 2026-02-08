@@ -1,11 +1,52 @@
 """チャレンジ ビジネスロジック"""
 
 import logging
+import random
 from datetime import date, timedelta
 
 from studybot.repositories.challenge_repository import ChallengeRepository
 
 logger = logging.getLogger(__name__)
+
+# 週次イベントテンプレート
+WEEKLY_EVENT_TEMPLATES = [
+    {
+        "name": "📚 読書マラソン週間",
+        "goal_type": "study_minutes",
+        "goal_target": 300,
+        "description": "今週は300分の学習を目指そう！",
+    },
+    {
+        "name": "🍅 ポモドーロチャレンジ",
+        "goal_type": "session_count",
+        "goal_target": 15,
+        "description": "今週15セッションのポモドーロを完了しよう！",
+    },
+    {
+        "name": "✅ タスクハンター",
+        "goal_type": "tasks_completed",
+        "goal_target": 20,
+        "description": "今週20個のタスクをクリアしよう！",
+    },
+    {
+        "name": "🔥 連続学習チャレンジ",
+        "goal_type": "study_minutes",
+        "goal_target": 420,
+        "description": "毎日1時間×7日間の学習を達成しよう！",
+    },
+    {
+        "name": "⚡ スプリント学習",
+        "goal_type": "session_count",
+        "goal_target": 20,
+        "description": "今週20回の学習セッションに挑戦！",
+    },
+    {
+        "name": "🎯 集中の達人",
+        "goal_type": "study_minutes",
+        "goal_target": 500,
+        "description": "500分の集中学習に挑戦しよう！",
+    },
+]
 
 
 class ChallengeManager:
@@ -129,3 +170,41 @@ class ChallengeManager:
                 await self.repository.update_status(c["id"], "completed")
                 count += 1
         return count
+
+    async def auto_generate_weekly_event(
+        self, guild_id: int, creator_id: int
+    ) -> dict | None:
+        """週次イベントを自動生成"""
+        # 今週既にアクティブなイベントがあればスキップ
+        active = await self.repository.list_challenges(guild_id, "active")
+        if active:
+            return None
+
+        template = random.choice(WEEKLY_EVENT_TEMPLATES)
+        today = date.today()
+        end = today + timedelta(days=7)
+
+        challenge_id = await self.repository.create_challenge(
+            creator_id=creator_id,
+            guild_id=guild_id,
+            name=template["name"],
+            description=template["description"],
+            goal_type=template["goal_type"],
+            goal_target=template["goal_target"],
+            duration_days=7,
+            start_date=today,
+            end_date=end,
+            xp_multiplier=1.5,
+        )
+
+        await self.repository.update_status(challenge_id, "active")
+
+        return {
+            "challenge_id": challenge_id,
+            "name": template["name"],
+            "description": template["description"],
+            "goal_type": template["goal_type"],
+            "goal_target": template["goal_target"],
+            "start_date": str(today),
+            "end_date": str(end),
+        }

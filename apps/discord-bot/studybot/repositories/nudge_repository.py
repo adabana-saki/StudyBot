@@ -1,6 +1,7 @@
 """スマホ通知 DB操作"""
 
 import logging
+from datetime import date, timedelta
 
 from studybot.repositories.base import BaseRepository
 
@@ -127,3 +128,25 @@ class NudgeRepository(BaseRepository):
                 session_id,
             )
         return dict(row) if row else None
+
+    # --- 離脱検知DM ---
+
+    async def record_churn_dm(self, user_id: int) -> None:
+        """離脱検知DM送信を記録"""
+        await self.add_history(user_id, "churn_detection", "離脱検知DMを送信")
+
+    async def has_recent_churn_dm(self, user_id: int, days: int = 7) -> bool:
+        """直近N日以内に離脱検知DMを送信済みか確認"""
+        cutoff = date.today() - timedelta(days=days)
+        async with self.db_pool.acquire() as conn:
+            count = await conn.fetchval(
+                """
+                SELECT COUNT(*) FROM nudge_history
+                WHERE user_id = $1
+                  AND event_type = 'churn_detection'
+                  AND sent_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+        return count > 0

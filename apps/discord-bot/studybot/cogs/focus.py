@@ -210,7 +210,10 @@ class FocusCog(commands.Cog):
 
         if not status:
             await interaction.response.send_message(
-                "アクティブなフォーカスセッションはありません。",
+                embed=focus_embed(
+                    "フォーカスステータス",
+                    "アクティブなフォーカスセッションはありません。",
+                ),
                 ephemeral=True,
             )
             return

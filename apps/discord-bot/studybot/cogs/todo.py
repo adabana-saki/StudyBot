@@ -9,7 +9,7 @@ from discord.ext import commands, tasks
 
 from studybot.config.constants import COLORS, PRIORITY_LABELS
 from studybot.managers.todo_manager import TodoManager
-from studybot.utils.embed_helper import error_embed, success_embed
+from studybot.utils.embed_helper import error_embed, info_embed, success_embed
 
 logger = logging.getLogger(__name__)
 
@@ -180,11 +180,7 @@ class TodoCog(commands.Cog):
 
         if not todos:
             await interaction.followup.send(
-                embed=discord.Embed(
-                    title="📋 タスク一覧",
-                    description="タスクはありません。",
-                    color=COLORS["primary"],
-                )
+                embed=info_embed("📋 タスク一覧", "タスクはありません。")
             )
             return
 
@@ -200,11 +196,7 @@ class TodoCog(commands.Cog):
                 f"{status_icon} `#{todo['id']}` {priority_icon} {todo['title']}{deadline_str}"
             )
 
-        embed = discord.Embed(
-            title="📋 タスク一覧",
-            description="\n".join(lines),
-            color=COLORS["primary"],
-        )
+        embed = info_embed("📋 タスク一覧", "\n".join(lines))
         embed.set_footer(text=f"{len(todos)}件のタスク")
         await interaction.followup.send(embed=embed)
 
@@ -280,6 +272,7 @@ class TodoCog(commands.Cog):
                                 ),
                                 color=COLORS["warning"],
                             )
+                            embed.set_footer(text="StudyBot タスクリマインダー")
                             await user.send(embed=embed)
                         except discord.Forbidden:
                             pass

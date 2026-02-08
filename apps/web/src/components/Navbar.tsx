@@ -24,6 +24,10 @@ import {
   Menu,
   X,
   LogOut,
+  MessageCircle,
+  Swords,
+  DoorOpen,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -46,6 +50,9 @@ const navLinks = [
   { href: "/buddy", label: "バディ", icon: Users },
   { href: "/insights", label: "インサイト", icon: Brain },
   { href: "/challenges", label: "チャレンジ", icon: Flag },
+  { href: "/timeline", label: "タイムライン", icon: MessageCircle },
+  { href: "/battles", label: "バトル", icon: Swords },
+  { href: "/rooms", label: "ルーム", icon: DoorOpen },
   { href: "/shop", label: "ショップ", icon: ShoppingBag },
   { href: "/todos", label: "タスク", icon: CheckSquare },
   { href: "/plans", label: "プラン", icon: Map },

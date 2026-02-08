@@ -68,6 +68,18 @@ class QuestCog(commands.Cog):
                 inline=False,
             )
 
+        # チェインストリーク表示
+        try:
+            chain = await self.manager.get_chain_streak(interaction.user.id)
+            if chain > 0:
+                embed.add_field(
+                    name="🔗 クエストチェイン",
+                    value=f"**{chain}日**連続全完了中！",
+                    inline=False,
+                )
+        except Exception:
+            pass
+
         embed.set_footer(text="クエスト完了後、/quest claim <ID> で報酬を受け取れます")
         await interaction.followup.send(embed=embed)
 

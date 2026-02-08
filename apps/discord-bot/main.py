@@ -96,6 +96,11 @@ class StudyBot(commands.Bot):
             ("studybot.cogs.quest", False),
             ("studybot.cogs.team", False),
             ("studybot.cogs.learning_path", False),
+            # Phase 8
+            ("studybot.cogs.social_notify", False),
+            ("studybot.cogs.battle", False),
+            ("studybot.cogs.scheduled_actions", False),
+            ("studybot.cogs.study_room", False),
         ]
 
         for cog, critical in cog_list:

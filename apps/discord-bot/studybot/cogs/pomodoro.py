@@ -8,7 +8,7 @@ from discord.ext import commands, tasks
 
 from studybot.config.constants import COLORS, POMODORO_DEFAULTS
 from studybot.managers.pomodoro_manager import PomodoroManager
-from studybot.utils.embed_helper import error_embed, success_embed
+from studybot.utils.embed_helper import error_embed, info_embed, success_embed
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,8 @@ class PomodoroView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
             await interaction.response.send_message(
-                "このタイマーはあなたのものではありません。", ephemeral=True
+                embed=error_embed("エラー", "このタイマーはあなたのものではありません。"),
+                ephemeral=True,
             )
             return False
         return True
@@ -33,17 +34,27 @@ class PomodoroView(discord.ui.View):
     async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         result = await self.cog.manager.pause_session(self.user_id)
         if "error" in result:
-            await interaction.response.send_message(result["error"], ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("一時停止失敗", result["error"]), ephemeral=True
+            )
         else:
-            await interaction.response.send_message("⏸ 一時停止しました", ephemeral=True)
+            await interaction.response.send_message(
+                embed=success_embed("一時停止", "⏸ セッションを一時停止しました。"),
+                ephemeral=True,
+            )
 
     @discord.ui.button(label="▶ 再開", style=discord.ButtonStyle.success)
     async def resume_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         result = await self.cog.manager.resume_session(self.user_id)
         if "error" in result:
-            await interaction.response.send_message(result["error"], ephemeral=True)
+            await interaction.response.send_message(
+                embed=error_embed("再開失敗", result["error"]), ephemeral=True
+            )
         else:
-            await interaction.response.send_message("▶ 再開しました", ephemeral=True)
+            await interaction.response.send_message(
+                embed=success_embed("再開", "▶ セッションを再開しました。"),
+                ephemeral=True,
+            )
 
     @discord.ui.button(label="⏹ 停止", style=discord.ButtonStyle.danger)
     async def stop_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -216,7 +227,10 @@ class PomodoroCog(commands.Cog):
                 embed=error_embed("一時停止失敗", result["error"]), ephemeral=True
             )
         else:
-            await interaction.response.send_message("⏸ 一時停止しました", ephemeral=True)
+            await interaction.response.send_message(
+                embed=success_embed("一時停止", "⏸ セッションを一時停止しました。"),
+                ephemeral=True,
+            )
 
     @pomodoro_group.command(name="resume", description="セッションを再開")
     async def pomodoro_resume(self, interaction: discord.Interaction):
@@ -226,7 +240,10 @@ class PomodoroCog(commands.Cog):
                 embed=error_embed("再開失敗", result["error"]), ephemeral=True
             )
         else:
-            await interaction.response.send_message("▶ 再開しました", ephemeral=True)
+            await interaction.response.send_message(
+                embed=success_embed("再開", "▶ セッションを再開しました。"),
+                ephemeral=True,
+            )
 
     @pomodoro_group.command(name="stop", description="セッションを停止")
     async def pomodoro_stop(self, interaction: discord.Interaction):
@@ -284,7 +301,8 @@ class PomodoroCog(commands.Cog):
         status = self.manager.get_status(interaction.user.id)
         if not status:
             await interaction.response.send_message(
-                "アクティブなセッションはありません。", ephemeral=True
+                embed=info_embed("🍅 ポモドーロ", "アクティブなセッションはありません。"),
+                ephemeral=True,
             )
             return
 

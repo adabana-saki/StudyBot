@@ -74,6 +74,10 @@ export function useEventStream({ guildId, enabled = true }: UseEventStreamOption
         "raid_join", "raid_complete", "flashcard_review",
         "buddy_match", "challenge_join", "challenge_checkin",
         "session_sync", "insights_ready",
+        // Phase 8
+        "social_reaction", "social_comment",
+        "battle_start", "battle_score_update", "battle_complete",
+        "room_join", "room_leave", "room_goal_reached",
       ];
 
       for (const type of eventTypes) {
