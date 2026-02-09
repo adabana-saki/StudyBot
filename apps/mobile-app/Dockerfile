@@ -2,7 +2,7 @@
 # This is primarily for running tests, type-checking, and linting.
 # For actual mobile builds, use EAS Build (expo.dev) or local Xcode/Android Studio.
 
-FROM node:20-slim
+FROM node:25-slim
 
 WORKDIR /app
 
