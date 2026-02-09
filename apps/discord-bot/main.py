@@ -101,6 +101,8 @@ class StudyBot(commands.Bot):
             ("studybot.cogs.battle", False),
             ("studybot.cogs.scheduled_actions", False),
             ("studybot.cogs.study_room", False),
+            # Phase 9
+            ("studybot.cogs.market", False),
         ]
 
         for cog, critical in cog_list:

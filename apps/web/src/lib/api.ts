@@ -937,3 +937,206 @@ export function createAction(
     }),
   });
 }
+
+// === Market (投資市場) ===
+export interface Stock {
+  id: number;
+  symbol: string;
+  name: string;
+  topic_keyword: string;
+  description: string;
+  emoji: string;
+  sector: string;
+  base_price: number;
+  current_price: number;
+  previous_close: number;
+  total_shares: number;
+  circulating_shares: number;
+  change_pct: number;
+}
+
+export interface StockPriceHistory {
+  price: number;
+  volume: number;
+  study_minutes: number;
+  study_sessions: number;
+  recorded_date: string;
+}
+
+export interface StockDetail extends Stock {
+  history: StockPriceHistory[];
+}
+
+export interface StockHolding {
+  symbol: string;
+  name: string;
+  emoji: string;
+  sector: string;
+  shares: number;
+  avg_buy_price: number;
+  total_invested: number;
+  current_price: number;
+  market_value: number;
+  profit: number;
+  profit_pct: number;
+}
+
+export interface Portfolio {
+  holdings: StockHolding[];
+  total_value: number;
+  total_invested: number;
+  total_profit: number;
+  total_profit_pct: number;
+}
+
+export interface StockTransaction {
+  id: number;
+  symbol: string;
+  name: string;
+  emoji: string;
+  transaction_type: string;
+  shares: number;
+  price_per_share: number;
+  total_amount: number;
+  created_at: string;
+}
+
+export interface SavingsAccount {
+  id: number;
+  account_type: string;
+  balance: number;
+  interest_rate: number;
+  lock_days: number;
+  maturity_date: string | null;
+  total_interest_earned: number;
+  last_interest_at: string | null;
+}
+
+export interface SavingsStatus {
+  accounts: SavingsAccount[];
+  total_savings: number;
+  total_interest: number;
+}
+
+export interface InterestHistoryEntry {
+  id: number;
+  account_type: string;
+  amount: number;
+  balance_after: number;
+  calculated_at: string;
+}
+
+export interface MarketListing {
+  id: number;
+  seller_id: number;
+  seller_name: string;
+  item_id: number;
+  name: string;
+  emoji: string;
+  rarity: string;
+  quantity: number;
+  price_per_unit: number;
+  status: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface ItemPriceEntry {
+  avg_price: number;
+  min_price: number;
+  max_price: number;
+  volume: number;
+  recorded_date: string;
+}
+
+// Stock Market
+export function getStocks(): Promise<Stock[]> {
+  return fetchAPI<Stock[]>("/api/market/stocks");
+}
+
+export function getStockDetail(symbol: string): Promise<StockDetail> {
+  return fetchAPI<StockDetail>(`/api/market/stocks/${symbol}`);
+}
+
+export function getStockHistory(symbol: string, days = 30): Promise<StockPriceHistory[]> {
+  return fetchAPI<StockPriceHistory[]>(`/api/market/stocks/${symbol}/history?days=${days}`);
+}
+
+export function buyStock(symbol: string, shares: number): Promise<{ symbol: string; shares: number; price: number; total: number; balance: number }> {
+  return fetchAPI(`/api/market/stocks/${symbol}/buy`, {
+    method: "POST",
+    body: JSON.stringify({ shares }),
+  });
+}
+
+export function sellStock(symbol: string, shares: number): Promise<{ symbol: string; shares: number; price: number; total: number; balance: number; profit?: number }> {
+  return fetchAPI(`/api/market/stocks/${symbol}/sell`, {
+    method: "POST",
+    body: JSON.stringify({ shares }),
+  });
+}
+
+export function getPortfolio(): Promise<Portfolio> {
+  return fetchAPI<Portfolio>("/api/market/portfolio");
+}
+
+export function getPortfolioSummary(): Promise<{ total_value: number; total_invested: number; total_profit: number; total_profit_pct: number; stock_count: number }> {
+  return fetchAPI("/api/market/portfolio/summary");
+}
+
+export function getStockTransactions(limit = 20, offset = 0): Promise<PaginatedResponse<StockTransaction>> {
+  return fetchAPI(`/api/market/transactions?limit=${limit}&offset=${offset}`);
+}
+
+// Savings
+export function getSavingsStatus(): Promise<SavingsStatus> {
+  return fetchAPI<SavingsStatus>("/api/market/savings");
+}
+
+export function depositSavings(amount: number, accountType: string): Promise<{ account_type: string; type_label: string; amount: number; balance: number }> {
+  return fetchAPI("/api/market/savings/deposit", {
+    method: "POST",
+    body: JSON.stringify({ amount, account_type: accountType }),
+  });
+}
+
+export function withdrawSavings(amount: number, accountType: string): Promise<{ account_type: string; type_label: string; amount: number; new_balance: number }> {
+  return fetchAPI("/api/market/savings/withdraw", {
+    method: "POST",
+    body: JSON.stringify({ amount, account_type: accountType }),
+  });
+}
+
+export function getInterestHistory(limit = 20): Promise<InterestHistoryEntry[]> {
+  return fetchAPI<InterestHistoryEntry[]>(`/api/market/savings/interest-history?limit=${limit}`);
+}
+
+// Flea Market
+export function getFleaListings(itemId?: number, limit = 20, offset = 0): Promise<PaginatedResponse<MarketListing>> {
+  const params = new URLSearchParams({ limit: limit.toString(), offset: offset.toString() });
+  if (itemId) params.append("item_id", itemId.toString());
+  return fetchAPI(`/api/market/flea/listings?${params}`);
+}
+
+export function createFleaListing(itemId: number, quantity: number, pricePerUnit: number): Promise<MarketListing> {
+  return fetchAPI("/api/market/flea/listings", {
+    method: "POST",
+    body: JSON.stringify({ item_id: itemId, quantity, price_per_unit: pricePerUnit }),
+  });
+}
+
+export function buyFleaListing(listingId: number): Promise<{ listing_id: number; item_name: string; quantity: number; total: number; fee: number; balance: number }> {
+  return fetchAPI(`/api/market/flea/listings/${listingId}/buy`, { method: "POST" });
+}
+
+export function cancelFleaListing(listingId: number): Promise<{ status: string }> {
+  return fetchAPI(`/api/market/flea/listings/${listingId}`, { method: "DELETE" });
+}
+
+export function getMyFleaListings(): Promise<MarketListing[]> {
+  return fetchAPI<MarketListing[]>("/api/market/flea/my-listings");
+}
+
+export function getItemPriceHistory(itemId: number, days = 30): Promise<ItemPriceEntry[]> {
+  return fetchAPI<ItemPriceEntry[]>(`/api/market/flea/items/${itemId}/price-history?days=${days}`);
+}

@@ -521,3 +521,180 @@ class WeeklyReportResponse(BaseModel):
     insights: list = []
     generated_at: datetime
     raw_data: dict | None = None
+
+
+# === Market (投資市場) ===
+class StockResponse(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    topic_keyword: str
+    description: str
+    emoji: str
+    sector: str
+    base_price: int
+    current_price: int
+    previous_close: int
+    total_shares: int
+    circulating_shares: int
+    change_pct: float = 0.0
+
+
+class StockPriceHistory(BaseModel):
+    price: int
+    volume: int
+    study_minutes: int
+    study_sessions: int
+    recorded_date: date
+
+
+class StockDetailResponse(StockResponse):
+    history: list[StockPriceHistory] = []
+
+
+class StockTradeRequest(BaseModel):
+    shares: int = Field(ge=1, le=100, description="取引株数 (1-100)")
+
+
+class StockTradeResponse(BaseModel):
+    symbol: str
+    name: str
+    emoji: str
+    shares: int
+    price: int
+    total: int
+    balance: int
+    profit: int | None = None
+
+
+class StockHolding(BaseModel):
+    symbol: str
+    name: str
+    emoji: str
+    sector: str
+    shares: int
+    avg_buy_price: int
+    total_invested: int
+    current_price: int
+    market_value: int
+    profit: int
+    profit_pct: float
+
+
+class PortfolioResponse(BaseModel):
+    holdings: list[StockHolding]
+    total_value: int
+    total_invested: int
+    total_profit: int
+    total_profit_pct: float
+
+
+class StockTransactionResponse(BaseModel):
+    id: int
+    symbol: str
+    name: str
+    emoji: str
+    transaction_type: str
+    shares: int
+    price_per_share: int
+    total_amount: int
+    created_at: datetime
+
+
+# === Savings (貯金銀行) ===
+class SavingsAccountResponse(BaseModel):
+    id: int
+    account_type: str
+    balance: int
+    interest_rate: float
+    lock_days: int
+    maturity_date: datetime | None = None
+    total_interest_earned: int
+    last_interest_at: datetime | None = None
+
+
+class SavingsStatusResponse(BaseModel):
+    accounts: list[SavingsAccountResponse]
+    total_savings: int
+    total_interest: int
+
+
+class SavingsDepositRequest(BaseModel):
+    amount: int = Field(ge=10, description="預金額 (10以上)")
+    account_type: Literal["regular", "fixed"] = "regular"
+
+
+class SavingsWithdrawRequest(BaseModel):
+    amount: int = Field(ge=1, description="引き出し額")
+    account_type: Literal["regular", "fixed"] = "regular"
+
+
+class SavingsTransactionResponse(BaseModel):
+    account_type: str
+    type_label: str
+    amount: int
+    balance: int | None = None
+    new_balance: int | None = None
+    interest_rate: float | None = None
+    lock_days: int | None = None
+
+
+class InterestHistoryResponse(BaseModel):
+    id: int
+    account_type: str
+    amount: int
+    balance_after: int
+    calculated_at: datetime
+
+
+# === Flea Market (フリーマーケット) ===
+class MarketListingResponse(BaseModel):
+    id: int
+    seller_id: int
+    seller_name: str
+    item_id: int
+    name: str
+    emoji: str
+    rarity: str
+    quantity: int
+    price_per_unit: int
+    status: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class CreateListingRequest(BaseModel):
+    item_id: int
+    quantity: int = Field(ge=1, description="出品数量")
+    price_per_unit: int = Field(ge=1, le=100000, description="1個あたりの価格")
+
+
+class BuyListingResponse(BaseModel):
+    listing_id: int
+    item_name: str
+    item_emoji: str
+    quantity: int
+    total: int
+    fee: int
+    balance: int
+
+
+class UserListingResponse(BaseModel):
+    id: int
+    item_id: int
+    name: str
+    emoji: str
+    rarity: str
+    quantity: int
+    price_per_unit: int
+    status: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class ItemPriceHistoryResponse(BaseModel):
+    avg_price: int
+    min_price: int
+    max_price: int
+    volume: int
+    recorded_date: date

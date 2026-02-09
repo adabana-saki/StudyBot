@@ -24,6 +24,7 @@ from api.routes import (
     focus,
     insights,
     leaderboard,
+    market,
     mobile_auth,
     notifications,
     plans,
@@ -124,6 +125,8 @@ app.include_router(social.router)
 app.include_router(battles.router)
 app.include_router(server_analytics.router)
 app.include_router(rooms.router)
+# Phase 9
+app.include_router(market.router)
 
 
 @app.get("/")

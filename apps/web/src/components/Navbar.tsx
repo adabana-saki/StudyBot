@@ -28,6 +28,7 @@ import {
   Swords,
   DoorOpen,
   BarChart3,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ const navLinks = [
   { href: "/timeline", label: "タイムライン", icon: MessageCircle },
   { href: "/battles", label: "バトル", icon: Swords },
   { href: "/rooms", label: "ルーム", icon: DoorOpen },
+  { href: "/market", label: "投資市場", icon: TrendingUp },
   { href: "/shop", label: "ショップ", icon: ShoppingBag },
   { href: "/todos", label: "タスク", icon: CheckSquare },
   { href: "/plans", label: "プラン", icon: Map },

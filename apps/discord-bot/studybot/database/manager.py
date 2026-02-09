@@ -755,6 +755,125 @@ class DatabaseManager:
                     UNIQUE(room_id, user_id)
                 );
 
+                -- Phase 9: 学習株式市場
+                CREATE TABLE IF NOT EXISTS study_stocks (
+                    id SERIAL PRIMARY KEY,
+                    symbol VARCHAR(10) UNIQUE NOT NULL,
+                    name VARCHAR(50) NOT NULL,
+                    topic_keyword VARCHAR(50) NOT NULL,
+                    description TEXT DEFAULT '',
+                    emoji VARCHAR(10) DEFAULT '📈',
+                    sector VARCHAR(30) DEFAULT '',
+                    base_price INT DEFAULT 100,
+                    current_price INT DEFAULT 100,
+                    previous_close INT DEFAULT 100,
+                    total_shares INT DEFAULT 10000,
+                    circulating_shares INT DEFAULT 0,
+                    active BOOLEAN DEFAULT TRUE,
+                    listed_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS stock_price_history (
+                    id SERIAL PRIMARY KEY,
+                    stock_id INT NOT NULL
+                        REFERENCES study_stocks(id) ON DELETE CASCADE,
+                    price INT NOT NULL,
+                    volume INT DEFAULT 0,
+                    study_minutes INT DEFAULT 0,
+                    study_sessions INT DEFAULT 0,
+                    recorded_date DATE NOT NULL,
+                    UNIQUE(stock_id, recorded_date)
+                );
+
+                CREATE TABLE IF NOT EXISTS user_stock_holdings (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    stock_id INT NOT NULL
+                        REFERENCES study_stocks(id) ON DELETE CASCADE,
+                    shares INT DEFAULT 0,
+                    avg_buy_price INT DEFAULT 0,
+                    total_invested INT DEFAULT 0,
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, stock_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS stock_transactions (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    stock_id INT NOT NULL
+                        REFERENCES study_stocks(id) ON DELETE CASCADE,
+                    transaction_type VARCHAR(10) NOT NULL
+                        CHECK (transaction_type IN ('buy', 'sell')),
+                    shares INT NOT NULL,
+                    price_per_share INT NOT NULL,
+                    total_amount INT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 9: 貯金銀行
+                CREATE TABLE IF NOT EXISTS savings_accounts (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    account_type VARCHAR(10) NOT NULL
+                        CHECK (account_type IN ('regular', 'fixed')),
+                    balance INT DEFAULT 0,
+                    interest_rate FLOAT NOT NULL,
+                    lock_days INT DEFAULT 0,
+                    maturity_date TIMESTAMPTZ,
+                    total_interest_earned INT DEFAULT 0,
+                    last_interest_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, account_type)
+                );
+
+                CREATE TABLE IF NOT EXISTS interest_history (
+                    id SERIAL PRIMARY KEY,
+                    account_id INT NOT NULL
+                        REFERENCES savings_accounts(id) ON DELETE CASCADE,
+                    amount INT NOT NULL,
+                    balance_after INT NOT NULL,
+                    calculated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 9: フリーマーケット
+                CREATE TABLE IF NOT EXISTS market_listings (
+                    id SERIAL PRIMARY KEY,
+                    seller_id BIGINT NOT NULL REFERENCES users(user_id),
+                    item_id INT NOT NULL REFERENCES shop_items(id),
+                    quantity INT NOT NULL DEFAULT 1,
+                    price_per_unit INT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'active'
+                        CHECK (status IN ('active', 'sold', 'cancelled', 'expired')),
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS market_transactions (
+                    id SERIAL PRIMARY KEY,
+                    listing_id INT NOT NULL
+                        REFERENCES market_listings(id) ON DELETE CASCADE,
+                    seller_id BIGINT NOT NULL REFERENCES users(user_id),
+                    buyer_id BIGINT NOT NULL REFERENCES users(user_id),
+                    item_id INT NOT NULL REFERENCES shop_items(id),
+                    quantity INT NOT NULL,
+                    price_per_unit INT NOT NULL,
+                    total_amount INT NOT NULL,
+                    fee INT NOT NULL DEFAULT 0,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS item_price_history (
+                    id SERIAL PRIMARY KEY,
+                    item_id INT NOT NULL REFERENCES shop_items(id),
+                    avg_price INT DEFAULT 0,
+                    min_price INT DEFAULT 0,
+                    max_price INT DEFAULT 0,
+                    volume INT DEFAULT 0,
+                    recorded_date DATE NOT NULL,
+                    UNIQUE(item_id, recorded_date)
+                );
+
                 CREATE TABLE IF NOT EXISTS room_history (
                     id SERIAL PRIMARY KEY,
                     room_id INT NOT NULL
@@ -905,6 +1024,31 @@ class DatabaseManager:
                     ON scheduled_actions(executed, scheduled_for)
                     WHERE executed = FALSE;
 
+                -- Phase 9: Market indexes
+                CREATE INDEX IF NOT EXISTS idx_stock_price_history
+                    ON stock_price_history(stock_id, recorded_date DESC);
+                CREATE INDEX IF NOT EXISTS idx_user_holdings_user
+                    ON user_stock_holdings(user_id);
+                CREATE INDEX IF NOT EXISTS idx_stock_txn_user
+                    ON stock_transactions(user_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_stock_txn_stock
+                    ON stock_transactions(stock_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_savings_user
+                    ON savings_accounts(user_id);
+                CREATE INDEX IF NOT EXISTS idx_interest_history_account
+                    ON interest_history(account_id, calculated_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_market_listings_status
+                    ON market_listings(status, expires_at)
+                    WHERE status = 'active';
+                CREATE INDEX IF NOT EXISTS idx_market_listings_seller
+                    ON market_listings(seller_id, status);
+                CREATE INDEX IF NOT EXISTS idx_market_listings_item
+                    ON market_listings(item_id, status);
+                CREATE INDEX IF NOT EXISTS idx_market_txn_buyer
+                    ON market_transactions(buyer_id, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_item_price_history
+                    ON item_price_history(item_id, recorded_date DESC);
+
                 -- Phase 8: Study room indexes
                 CREATE INDEX IF NOT EXISTS idx_rooms_guild
                     ON study_rooms(guild_id, state);
@@ -1013,6 +1157,25 @@ class DatabaseManager:
                      'プロフィールをゴールドテーマに',
                      'theme', 100, 'common', '✨')
                 ON CONFLICT DO NOTHING;
+                """
+            )
+
+            # Phase 9: デフォルト株式銘柄を挿入
+            await conn.execute(
+                """
+                INSERT INTO study_stocks
+                    (symbol, name, topic_keyword, description, emoji, sector)
+                VALUES
+                    ('MATH', '数学株', '数学', '数学の学習量に連動', '📐', '理系'),
+                    ('ENG', '英語株', '英語', '英語の学習量に連動', '🔤', '語学'),
+                    ('SCI', '理科株', '理科', '理科の学習量に連動', '🔬', '理系'),
+                    ('HIST', '歴史株', '歴史', '歴史の学習量に連動', '📜', '文系'),
+                    ('CODE', 'プログラミング株', 'プログラミング',
+                     'プログラミングの学習量に連動', '💻', '技術'),
+                    ('JPN', '国語株', '国語', '国語の学習量に連動', '📝', '文系'),
+                    ('ART', '芸術株', '芸術', '芸術の学習量に連動', '🎨', '芸術'),
+                    ('ECON', '経済株', '経済', '経済の学習量に連動', '💰', '社会')
+                ON CONFLICT (symbol) DO NOTHING;
                 """
             )
 
