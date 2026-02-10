@@ -49,16 +49,12 @@ class BattleCog(commands.Cog):
         # Find user's team
         team_cog = self.bot.get_cog("TeamCog")
         if not team_cog:
-            await interaction.followup.send(
-                embed=error_embed("エラー", "チーム機能が無効です")
-            )
+            await interaction.followup.send(embed=error_embed("エラー", "チーム機能が無効です"))
             return
 
         user_teams = await team_cog.manager.get_user_teams(interaction.user.id)
         if not user_teams:
-            await interaction.followup.send(
-                embed=error_embed("エラー", "チームに所属していません")
-            )
+            await interaction.followup.send(embed=error_embed("エラー", "チームに所属していません"))
             return
 
         team_a_id = user_teams[0]["id"]
@@ -72,9 +68,7 @@ class BattleCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("バトル作成失敗", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("バトル作成失敗", result["error"]))
             return
 
         goal_labels = {
@@ -96,16 +90,12 @@ class BattleCog(commands.Cog):
 
     @battle_group.command(name="accept", description="バトルを承認")
     @app_commands.describe(battle_id="バトルID")
-    async def battle_accept(
-        self, interaction: discord.Interaction, battle_id: int
-    ):
+    async def battle_accept(self, interaction: discord.Interaction, battle_id: int):
         await interaction.response.defer()
         result = await self.manager.accept_battle(battle_id, interaction.user.id)
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("承認失敗", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("承認失敗", result["error"]))
             return
 
         embed = discord.Embed(
@@ -118,9 +108,7 @@ class BattleCog(commands.Cog):
     @battle_group.command(name="status", description="アクティブバトル一覧")
     async def battle_status(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        battles = await self.manager.battle_repo.get_active_battles(
-            interaction.guild_id or 0
-        )
+        battles = await self.manager.battle_repo.get_active_battles(interaction.guild_id or 0)
 
         if not battles:
             await interaction.followup.send(
@@ -137,23 +125,19 @@ class BattleCog(commands.Cog):
             embed.add_field(
                 name=f"{status_emoji} #{b['id']} {b['team_a_name']} vs {b['team_b_name']}",
                 value=f"スコア: {b['team_a_score']} - {b['team_b_score']} | "
-                      f"残り: {(b['end_date'] - b['start_date']).days}日",
+                f"残り: {(b['end_date'] - b['start_date']).days}日",
                 inline=False,
             )
         await interaction.followup.send(embed=embed)
 
     @battle_group.command(name="detail", description="バトル詳細")
     @app_commands.describe(battle_id="バトルID")
-    async def battle_detail(
-        self, interaction: discord.Interaction, battle_id: int
-    ):
+    async def battle_detail(self, interaction: discord.Interaction, battle_id: int):
         await interaction.response.defer()
         detail = await self.manager.get_battle_detail(battle_id)
 
         if not detail:
-            await interaction.followup.send(
-                embed=error_embed("エラー", "バトルが見つかりません")
-            )
+            await interaction.followup.send(embed=error_embed("エラー", "バトルが見つかりません"))
             return
 
         embed = discord.Embed(
@@ -174,8 +158,7 @@ class BattleCog(commands.Cog):
         if detail["contributions"]:
             top = detail["contributions"][:5]
             contrib_text = "\n".join(
-                f"**{c['username']}** — {c['total_contribution']}"
-                for c in top
+                f"**{c['username']}** — {c['total_contribution']}" for c in top
             )
             embed.add_field(name="🏆 貢献度ランキング", value=contrib_text, inline=False)
 

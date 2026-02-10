@@ -171,9 +171,7 @@ class ChallengeManager:
                 count += 1
         return count
 
-    async def auto_generate_weekly_event(
-        self, guild_id: int, creator_id: int
-    ) -> dict | None:
+    async def auto_generate_weekly_event(self, guild_id: int, creator_id: int) -> dict | None:
         """週次イベントを自動生成"""
         # 今週既にアクティブなイベントがあればスキップ
         active = await self.repository.list_challenges(guild_id, "active")

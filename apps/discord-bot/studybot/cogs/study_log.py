@@ -78,7 +78,9 @@ class StudyLogCog(commands.Cog):
         gamification = self.bot.get_cog("GamificationCog")
         if gamification:
             try:
-                await gamification.award_study_log_xp(interaction.user.id, interaction.channel, duration)
+                await gamification.award_study_log_xp(
+                    interaction.user.id, interaction.channel, duration
+                )
             except Exception:
                 logger.warning("学習ログのXP付与に失敗", exc_info=True)
 

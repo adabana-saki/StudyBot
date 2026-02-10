@@ -4,7 +4,6 @@ import json
 import logging
 import re
 
-from studybot.config.settings import settings
 from studybot.repositories.plan_repository import PlanRepository
 from studybot.services.openai_service import call_openai
 

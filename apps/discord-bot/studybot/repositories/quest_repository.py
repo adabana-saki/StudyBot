@@ -134,12 +134,16 @@ class QuestRepository(BaseRepository):
                 user_id,
                 days,
             )
-        return dict(row) if row else {
-            "pomodoro_count": 0,
-            "study_minutes": 0,
-            "tasks_completed": 0,
-            "log_count": 0,
-        }
+        return (
+            dict(row)
+            if row
+            else {
+                "pomodoro_count": 0,
+                "study_minutes": 0,
+                "tasks_completed": 0,
+                "log_count": 0,
+            }
+        )
 
     async def get_consecutive_quest_days(self, user_id: int) -> int:
         """連続してデイリークエストを全完了した日数を取得"""
@@ -160,7 +164,9 @@ class QuestRepository(BaseRepository):
         if not rows:
             return 0
         streak = 0
-        from datetime import date as date_type, timedelta
+        from datetime import date as date_type
+        from datetime import timedelta
+
         expected = date_type.today()
         for row in rows:
             qdate = row["quest_date"]

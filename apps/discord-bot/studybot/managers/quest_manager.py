@@ -201,9 +201,7 @@ class QuestManager:
         """クエストチェインの連続日数を取得"""
         return await self.repository.get_consecutive_quest_days(user_id)
 
-    async def update_progress(
-        self, user_id: int, quest_type: str, delta: int = 1
-    ) -> list[dict]:
+    async def update_progress(self, user_id: int, quest_type: str, delta: int = 1) -> list[dict]:
         """クエスト進捗を更新"""
         today = _today_jst()
         return await self.repository.update_progress(user_id, quest_type, today, delta)
@@ -249,9 +247,7 @@ class QuestManager:
         return units.get(quest_type, "")
 
 
-def _generate_chain_bonus_quest(
-    user_id: int, quest_date: date, chain_days: int
-) -> dict | None:
+def _generate_chain_bonus_quest(user_id: int, quest_date: date, chain_days: int) -> dict | None:
     """チェインボーナスクエストを生成"""
     base_target = 30 + chain_days * 5  # チェインが長いほど高い目標
     base_xp = max(30, int(base_target * 0.5 * CHAIN_BONUS_TEMPLATE["xp_multiplier"]))

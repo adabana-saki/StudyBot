@@ -64,9 +64,7 @@ class LearningPathRepository(BaseRepository):
             )
             return [dict(r) for r in rows]
 
-    async def complete_milestone(
-        self, user_id: int, path_id: str, milestone_index: int
-    ) -> dict:
+    async def complete_milestone(self, user_id: int, path_id: str, milestone_index: int) -> dict:
         """マイルストーンを完了としてマーク"""
         async with self.db_pool.acquire() as conn:
             async with conn.transaction():

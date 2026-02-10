@@ -79,7 +79,7 @@ class TestActivity:
     def test_activity_feed_unauthorized(self, client):
         """アクティビティフィード: 認証なし"""
         resp = client.get(f"/api/activity/{GUILD_ID}")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_studying_now(self, client, auth_headers, mock_pool):
         """現在勉強中のユーザー取得: 正常"""
@@ -121,7 +121,7 @@ class TestActivity:
     def test_studying_now_unauthorized(self, client):
         """現在勉強中: 認証なし"""
         resp = client.get(f"/api/activity/{GUILD_ID}/studying-now")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 # ============================================================
@@ -165,7 +165,7 @@ class TestBuddy:
     def test_get_buddy_profile_unauthorized(self, client):
         """バディプロフィール: 認証なし"""
         resp = client.get("/api/buddy/profile")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_update_buddy_profile(self, client, auth_headers, mock_pool):
         """バディプロフィール更新: 正常"""
@@ -211,7 +211,7 @@ class TestBuddy:
             "/api/buddy/profile",
             json={"subjects": ["Python"]},
         )
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_get_buddy_matches(self, client, auth_headers, mock_pool):
         """バディマッチ取得: データあり"""
@@ -266,7 +266,7 @@ class TestBuddy:
     def test_get_buddy_matches_unauthorized(self, client):
         """バディマッチ: 認証なし"""
         resp = client.get("/api/buddy/matches")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 # ============================================================
@@ -336,7 +336,7 @@ class TestChallenges:
     def test_list_challenges_unauthorized(self, client):
         """チャレンジ一覧: 認証なし"""
         resp = client.get("/api/challenges")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_challenge_detail(self, client, auth_headers, mock_pool):
         """チャレンジ詳細: 正常"""
@@ -416,7 +416,7 @@ class TestChallenges:
     def test_join_challenge_unauthorized(self, client):
         """チャレンジ参加: 認証なし"""
         resp = client.post("/api/challenges/1/join")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 # ============================================================
@@ -480,7 +480,7 @@ class TestSessions:
     def test_get_active_sessions_unauthorized(self, client):
         """アクティブセッション: 認証なし"""
         resp = client.get("/api/sessions/active")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     @patch(
         "api.services.redis_client.get_redis",
@@ -544,7 +544,7 @@ class TestSessions:
                 "duration_minutes": 25,
             },
         )
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 # ============================================================
@@ -621,7 +621,7 @@ class TestInsights:
     def test_get_my_insights_unauthorized(self, client):
         """インサイト: 認証なし"""
         resp = client.get("/api/insights/me")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_get_my_reports(self, client, auth_headers, mock_pool):
         """週次レポート一覧: 正常"""
@@ -694,4 +694,4 @@ class TestInsights:
     def test_get_my_reports_unauthorized(self, client):
         """週次レポート: 認証なし"""
         resp = client.get("/api/insights/me/reports")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)

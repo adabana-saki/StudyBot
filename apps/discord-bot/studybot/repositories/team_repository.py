@@ -1,7 +1,6 @@
 """スタディチーム リポジトリ"""
 
 import logging
-import random
 from datetime import date
 
 from studybot.repositories.base import BaseRepository
@@ -154,13 +153,16 @@ class TeamRepository(BaseRepository):
 
     async def count_user_teams(self, user_id: int) -> int:
         async with self.db_pool.acquire() as conn:
-            return await conn.fetchval(
-                """
+            return (
+                await conn.fetchval(
+                    """
                 SELECT COUNT(*) FROM study_teams
                 WHERE creator_id = $1
                 """,
-                user_id,
-            ) or 0
+                    user_id,
+                )
+                or 0
+            )
 
     async def get_team_stats(self, team_id: int) -> dict:
         async with self.db_pool.acquire() as conn:
@@ -223,9 +225,7 @@ class TeamRepository(BaseRepository):
                 "weekly_minutes": weekly_minutes,
                 "weekly_sessions": row["weekly_sessions"] or 0,
                 "member_count": member_count,
-                "avg_weekly_minutes_per_member": round(
-                    weekly_minutes / member_count
-                ),
+                "avg_weekly_minutes_per_member": round(weekly_minutes / member_count),
             }
 
     # --- チームクエスト ---

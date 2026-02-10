@@ -1,37 +1,31 @@
 """投資市場Cog — /market, /savings, /flea コマンド + タスクループ"""
 
 import logging
-from datetime import time, timezone
+from datetime import UTC, time
 
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from studybot.config.constants import COLORS, MARKET_CONFIG, SAVINGS_CONFIG, STOCK_CONFIG
+from studybot.config.constants import COLORS, MARKET_CONFIG, SAVINGS_CONFIG
 from studybot.managers.market_manager import MarketManager
-from studybot.utils.embed_helper import error_embed, success_embed
+from studybot.utils.embed_helper import error_embed
 
 logger = logging.getLogger(__name__)
 
-JST = timezone.utc  # タスクループは UTC で制御
+JST = UTC  # タスクループは UTC で制御
 
 
 def market_embed(title: str, description: str = "") -> discord.Embed:
-    return discord.Embed(
-        title=f"📈 {title}", description=description, color=COLORS["market"]
-    )
+    return discord.Embed(title=f"📈 {title}", description=description, color=COLORS["market"])
 
 
 def savings_embed(title: str, description: str = "") -> discord.Embed:
-    return discord.Embed(
-        title=f"🏦 {title}", description=description, color=COLORS["savings"]
-    )
+    return discord.Embed(title=f"🏦 {title}", description=description, color=COLORS["savings"])
 
 
 def flea_embed(title: str, description: str = "") -> discord.Embed:
-    return discord.Embed(
-        title=f"🛒 {title}", description=description, color=COLORS["flea"]
-    )
+    return discord.Embed(title=f"🛒 {title}", description=description, color=COLORS["flea"])
 
 
 class MarketCog(commands.Cog):
@@ -114,9 +108,7 @@ class MarketCog(commands.Cog):
 
     @market_group.command(name="buy", description="株を購入")
     @app_commands.describe(symbol="銘柄シンボル (例: MATH)", shares="購入株数")
-    async def market_buy(
-        self, interaction: discord.Interaction, symbol: str, shares: int
-    ):
+    async def market_buy(self, interaction: discord.Interaction, symbol: str, shares: int):
         await interaction.response.defer(ephemeral=True)
         result = await self.manager.buy_stock(interaction.user.id, symbol.upper(), shares)
 
@@ -130,15 +122,13 @@ class MarketCog(commands.Cog):
             "購入完了！",
             f"{result['emoji']} **{result['symbol']}** ({result['name']})\n"
             f"📊 {result['shares']}株 × {result['price']:,} = **{result['total']:,}** 🪙\n"
-            f"💰 残高: **{result['balance']:,}** 🪙"
+            f"💰 残高: **{result['balance']:,}** 🪙",
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @market_group.command(name="sell", description="株を売却")
     @app_commands.describe(symbol="銘柄シンボル", shares="売却株数")
-    async def market_sell(
-        self, interaction: discord.Interaction, symbol: str, shares: int
-    ):
+    async def market_sell(self, interaction: discord.Interaction, symbol: str, shares: int):
         await interaction.response.defer(ephemeral=True)
         result = await self.manager.sell_stock(interaction.user.id, symbol.upper(), shares)
 
@@ -154,7 +144,7 @@ class MarketCog(commands.Cog):
             f"{result['emoji']} **{result['symbol']}** ({result['name']})\n"
             f"📊 {result['shares']}株 × {result['price']:,} = **{result['total']:,}** 🪙\n"
             f"💹 損益: **{profit_str}** 🪙\n"
-            f"💰 残高: **{result['balance']:,}** 🪙"
+            f"💰 残高: **{result['balance']:,}** 🪙",
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -165,7 +155,10 @@ class MarketCog(commands.Cog):
 
         if not portfolio["holdings"]:
             await interaction.followup.send(
-                embed=market_embed("ポートフォリオ", "保有株はありません。\n`/market buy` で株を購入しましょう！"),
+                embed=market_embed(
+                    "ポートフォリオ",
+                    "保有株はありません。\n`/market buy` で株を購入しましょう！",
+                ),
                 ephemeral=True,
             )
             return
@@ -187,7 +180,8 @@ class MarketCog(commands.Cog):
             value=(
                 f"📊 評価額: **{portfolio['total_value']:,}** 🪙\n"
                 f"💰 投資額: {portfolio['total_invested']:,} 🪙\n"
-                f"💹 損益: {total_sign}{portfolio['total_profit']:,} ({total_sign}{portfolio['total_profit_pct']}%)"
+                f"💹 損益: {total_sign}{portfolio['total_profit']:,} "
+                f"({total_sign}{portfolio['total_profit_pct']}%)"
             ),
             inline=False,
         )
@@ -214,7 +208,8 @@ class MarketCog(commands.Cog):
         embed.add_field(name="前日終値", value=f"{detail['previous_close']:,} 🪙", inline=True)
         embed.add_field(name="変動率", value=f"{sign}{detail['change_pct']}%", inline=True)
         embed.add_field(name="基準価格", value=f"{detail['base_price']:,} 🪙", inline=True)
-        embed.add_field(name="流通株数", value=f"{detail['circulating_shares']:,} / {detail['total_shares']:,}", inline=True)
+        circ = f"{detail['circulating_shares']:,} / {detail['total_shares']:,}"
+        embed.add_field(name="流通株数", value=circ, inline=True)
         embed.add_field(name="セクター", value=detail["sector"], inline=True)
 
         # 直近の価格履歴 (簡易テキストチャート)
@@ -280,20 +275,31 @@ class MarketCog(commands.Cog):
             embed.description = (
                 "口座はまだありません。\n"
                 "`/savings deposit <金額> regular` で普通預金を始めましょう！\n\n"
-                f"💰 **普通預金**: 日利 {SAVINGS_CONFIG['regular_daily_rate']*100}% (いつでも引き出し可)\n"
-                f"🔒 **定期預金**: 日利 {SAVINGS_CONFIG['fixed_daily_rate']*100}% ({SAVINGS_CONFIG['fixed_lock_days']}日ロック)"
+                f"💰 **普通預金**: 日利 "
+                f"{SAVINGS_CONFIG['regular_daily_rate'] * 100}% "
+                f"(いつでも引き出し可)\n"
+                f"🔒 **定期預金**: 日利 "
+                f"{SAVINGS_CONFIG['fixed_daily_rate'] * 100}% "
+                f"({SAVINGS_CONFIG['fixed_lock_days']}日ロック)"
             )
         else:
             for acc in data["accounts"]:
                 type_label = "💰 普通預金" if acc["account_type"] == "regular" else "🔒 定期預金"
-                value = f"残高: **{acc['balance']:,}** 🪙\n利率: 日利 {acc['interest_rate']*100}%\n累計利息: {acc['total_interest_earned']:,} 🪙"
+                value = (
+                    f"残高: **{acc['balance']:,}** 🪙\n"
+                    f"利率: 日利 {acc['interest_rate'] * 100}%\n"
+                    f"累計利息: {acc['total_interest_earned']:,} 🪙"
+                )
                 if acc["account_type"] == "fixed" and acc["maturity_date"]:
                     value += f"\n満期日: {acc['maturity_date'].strftime('%Y-%m-%d')}"
                 embed.add_field(name=type_label, value=value, inline=True)
 
             embed.add_field(
                 name="合計",
-                value=f"預金合計: **{data['total_savings']:,}** 🪙\n累計利息: {data['total_interest']:,} 🪙",
+                value=(
+                    f"預金合計: **{data['total_savings']:,}** 🪙\n"
+                    f"累計利息: {data['total_interest']:,} 🪙"
+                ),
                 inline=False,
             )
 
@@ -304,18 +310,20 @@ class MarketCog(commands.Cog):
         amount="預金額",
         account_type="口座タイプ (regular=普通, fixed=定期)",
     )
-    @app_commands.choices(account_type=[
-        app_commands.Choice(name="普通預金 (日利0.1%, いつでも引出可)", value="regular"),
-        app_commands.Choice(name="定期預金 (日利0.3%, 7日ロック)", value="fixed"),
-    ])
+    @app_commands.choices(
+        account_type=[
+            app_commands.Choice(name="普通預金 (日利0.1%, いつでも引出可)", value="regular"),
+            app_commands.Choice(name="定期預金 (日利0.3%, 7日ロック)", value="fixed"),
+        ]
+    )
     async def savings_deposit(
-        self, interaction: discord.Interaction,
-        amount: int, account_type: app_commands.Choice[str],
+        self,
+        interaction: discord.Interaction,
+        amount: int,
+        account_type: app_commands.Choice[str],
     ):
         await interaction.response.defer(ephemeral=True)
-        result = await self.manager.deposit(
-            interaction.user.id, amount, account_type.value
-        )
+        result = await self.manager.deposit(interaction.user.id, amount, account_type.value)
 
         if "error" in result:
             await interaction.followup.send(
@@ -327,7 +335,7 @@ class MarketCog(commands.Cog):
             "預金完了！",
             f"**{result['type_label']}** に **{result['amount']:,}** 🪙 を預金しました\n"
             f"口座残高: **{result['balance']:,}** 🪙\n"
-            f"利率: 日利 {result['interest_rate']*100}%"
+            f"利率: 日利 {result['interest_rate'] * 100}%",
         )
         if result["lock_days"] > 0:
             embed.description += f"\n🔒 ロック期間: {result['lock_days']}日"
@@ -338,18 +346,20 @@ class MarketCog(commands.Cog):
         amount="引き出し額",
         account_type="口座タイプ (regular=普通, fixed=定期)",
     )
-    @app_commands.choices(account_type=[
-        app_commands.Choice(name="普通預金", value="regular"),
-        app_commands.Choice(name="定期預金", value="fixed"),
-    ])
+    @app_commands.choices(
+        account_type=[
+            app_commands.Choice(name="普通預金", value="regular"),
+            app_commands.Choice(name="定期預金", value="fixed"),
+        ]
+    )
     async def savings_withdraw(
-        self, interaction: discord.Interaction,
-        amount: int, account_type: app_commands.Choice[str],
+        self,
+        interaction: discord.Interaction,
+        amount: int,
+        account_type: app_commands.Choice[str],
     ):
         await interaction.response.defer(ephemeral=True)
-        result = await self.manager.withdraw(
-            interaction.user.id, amount, account_type.value
-        )
+        result = await self.manager.withdraw(interaction.user.id, amount, account_type.value)
 
         if "error" in result:
             await interaction.followup.send(
@@ -360,7 +370,7 @@ class MarketCog(commands.Cog):
         embed = savings_embed(
             "引き出し完了！",
             f"**{result['type_label']}** から **{result['amount']:,}** 🪙 を引き出しました\n"
-            f"口座残高: **{result['new_balance']:,}** 🪙"
+            f"口座残高: **{result['new_balance']:,}** 🪙",
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -399,7 +409,10 @@ class MarketCog(commands.Cog):
 
         if not data["items"]:
             await interaction.followup.send(
-                embed=flea_embed("フリーマーケット", "現在出品はありません。\n`/flea sell` で出品してみましょう！")
+                embed=flea_embed(
+                    "フリーマーケット",
+                    "現在出品はありません。\n`/flea sell` で出品してみましょう！",
+                )
             )
             return
 
@@ -411,7 +424,13 @@ class MarketCog(commands.Cog):
             )
 
         embed = flea_embed("フリーマーケット", "\n".join(lines))
-        embed.set_footer(text=f"全{data['total']}件 | 手数料{int(MARKET_CONFIG['fee_rate']*100)}% | /flea buy <ID> で購入")
+        embed.set_footer(
+            text=(
+                f"全{data['total']}件 | "
+                f"手数料{int(MARKET_CONFIG['fee_rate'] * 100)}% | "
+                f"/flea buy <ID> で購入"
+            )
+        )
         await interaction.followup.send(embed=embed)
 
     @flea_group.command(name="sell", description="アイテムを出品")
@@ -421,13 +440,14 @@ class MarketCog(commands.Cog):
         price="1個あたりの価格",
     )
     async def flea_sell(
-        self, interaction: discord.Interaction,
-        item_id: int, quantity: int, price: int,
+        self,
+        interaction: discord.Interaction,
+        item_id: int,
+        quantity: int,
+        price: int,
     ):
         await interaction.response.defer(ephemeral=True)
-        result = await self.manager.create_listing(
-            interaction.user.id, item_id, quantity, price
-        )
+        result = await self.manager.create_listing(interaction.user.id, item_id, quantity, price)
 
         if "error" in result:
             await interaction.followup.send(
@@ -439,7 +459,7 @@ class MarketCog(commands.Cog):
             "出品完了！",
             f"出品ID: **#{result['listing_id']}**\n"
             f"数量: {result['quantity']}個 × {result['price']:,} 🪙\n"
-            f"📅 {MARKET_CONFIG['listing_duration_days']}日間出品されます"
+            f"📅 {MARKET_CONFIG['listing_duration_days']}日間出品されます",
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -459,7 +479,7 @@ class MarketCog(commands.Cog):
             "購入完了！",
             f"{result['item_emoji']} **{result['item_name']}** × {result['quantity']}\n"
             f"💰 価格: {result['total']:,} 🪙 + 手数料: {result['fee']:,} 🪙\n"
-            f"💰 残高: **{result['balance']:,}** 🪙"
+            f"💰 残高: **{result['balance']:,}** 🪙",
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
@@ -477,9 +497,13 @@ class MarketCog(commands.Cog):
 
         lines = []
         for item in listings:
-            status_icon = {"active": "🟢", "sold": "✅", "cancelled": "❌", "expired": "⏰"}.get(item["status"], "❓")
+            status_icon = {"active": "🟢", "sold": "✅", "cancelled": "❌", "expired": "⏰"}.get(
+                item["status"], "❓"
+            )
             lines.append(
-                f"{status_icon} **#{item['id']}** {item['emoji']} {item['name']} × {item['quantity']} — "
+                f"{status_icon} **#{item['id']}** "
+                f"{item['emoji']} {item['name']} "
+                f"× {item['quantity']} — "
                 f"{item['price_per_unit']:,} 🪙/個"
             )
 
@@ -499,7 +523,10 @@ class MarketCog(commands.Cog):
             )
             return
 
-        embed = flea_embed("出品キャンセル完了", f"出品 **#{listing_id}** をキャンセルしました\nアイテムはインベントリに返却されました")
+        embed = flea_embed(
+            "出品キャンセル完了",
+            f"出品 **#{listing_id}** をキャンセルしました\nアイテムはインベントリに返却されました",
+        )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @flea_group.command(name="price_check", description="アイテムの市場価格を確認")

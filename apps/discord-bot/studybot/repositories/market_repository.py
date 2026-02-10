@@ -32,9 +32,7 @@ class MarketRepository(BaseRepository):
 
     async def get_stock_by_id(self, stock_id: int) -> dict | None:
         async with self.db_pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM study_stocks WHERE id = $1", stock_id
-            )
+            row = await conn.fetchrow("SELECT * FROM study_stocks WHERE id = $1", stock_id)
         return dict(row) if row else None
 
     async def update_stock_price(
@@ -48,7 +46,10 @@ class MarketRepository(BaseRepository):
                     SET current_price = $2, previous_close = $3, updated_at = $4
                     WHERE id = $1 RETURNING *
                     """,
-                    stock_id, new_price, previous_close, datetime.now(UTC),
+                    stock_id,
+                    new_price,
+                    previous_close,
+                    datetime.now(UTC),
                 )
             else:
                 row = await conn.fetchrow(
@@ -57,7 +58,9 @@ class MarketRepository(BaseRepository):
                     SET current_price = $2, updated_at = $3
                     WHERE id = $1 RETURNING *
                     """,
-                    stock_id, new_price, datetime.now(UTC),
+                    stock_id,
+                    new_price,
+                    datetime.now(UTC),
                 )
         return dict(row) if row else None
 
@@ -73,13 +76,13 @@ class MarketRepository(BaseRepository):
                 WHERE LOWER(topic) LIKE '%' || LOWER($1) || '%'
                   AND logged_at >= $2 AND logged_at < $3
                 """,
-                topic_keyword, start, end,
+                topic_keyword,
+                start,
+                end,
             )
         return result or 0
 
-    async def get_net_buy_volume(
-        self, stock_id: int, since: datetime
-    ) -> int:
+    async def get_net_buy_volume(self, stock_id: int, since: datetime) -> int:
         """直近の純買い越しボリュームを取得"""
         async with self.db_pool.acquire() as conn:
             result = await conn.fetchval(
@@ -93,13 +96,19 @@ class MarketRepository(BaseRepository):
                 FROM stock_transactions
                 WHERE stock_id = $1 AND created_at >= $2
                 """,
-                stock_id, since,
+                stock_id,
+                since,
             )
         return result or 0
 
     async def save_price_snapshot(
-        self, stock_id: int, price: int, volume: int,
-        study_minutes: int, study_sessions: int, recorded_date
+        self,
+        stock_id: int,
+        price: int,
+        volume: int,
+        study_minutes: int,
+        study_sessions: int,
+        recorded_date,
     ) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(
@@ -111,12 +120,15 @@ class MarketRepository(BaseRepository):
                     price = $2, volume = $3,
                     study_minutes = $4, study_sessions = $5
                 """,
-                stock_id, price, volume, study_minutes, study_sessions, recorded_date,
+                stock_id,
+                price,
+                volume,
+                study_minutes,
+                study_sessions,
+                recorded_date,
             )
 
-    async def get_price_history(
-        self, stock_id: int, days: int = 30
-    ) -> list[dict]:
+    async def get_price_history(self, stock_id: int, days: int = 30) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -125,7 +137,8 @@ class MarketRepository(BaseRepository):
                   AND recorded_date >= CURRENT_DATE - $2::INT
                 ORDER BY recorded_date
                 """,
-                stock_id, days,
+                stock_id,
+                days,
             )
         return [dict(r) for r in rows]
 
@@ -146,15 +159,20 @@ class MarketRepository(BaseRepository):
                     WHERE user_id = $1 AND balance >= $2
                     RETURNING balance
                     """,
-                    user_id, total_cost, datetime.now(UTC),
+                    user_id,
+                    total_cost,
+                    datetime.now(UTC),
                 )
                 if not spent:
                     return None
 
                 # 保有株を更新
                 existing = await conn.fetchrow(
-                    "SELECT shares, avg_buy_price, total_invested FROM user_stock_holdings WHERE user_id = $1 AND stock_id = $2",
-                    user_id, stock_id,
+                    """SELECT shares, avg_buy_price, total_invested
+                    FROM user_stock_holdings
+                    WHERE user_id = $1 AND stock_id = $2""",
+                    user_id,
+                    stock_id,
                 )
                 if existing:
                     old_shares = existing["shares"]
@@ -169,8 +187,12 @@ class MarketRepository(BaseRepository):
                             total_invested = $5, updated_at = $6
                         WHERE user_id = $1 AND stock_id = $2
                         """,
-                        user_id, stock_id, new_shares, new_avg,
-                        new_invested, datetime.now(UTC),
+                        user_id,
+                        stock_id,
+                        new_shares,
+                        new_avg,
+                        new_invested,
+                        datetime.now(UTC),
                     )
                 else:
                     await conn.execute(
@@ -179,14 +201,21 @@ class MarketRepository(BaseRepository):
                             (user_id, stock_id, shares, avg_buy_price, total_invested, updated_at)
                         VALUES ($1, $2, $3, $4, $5, $6)
                         """,
-                        user_id, stock_id, shares, price_per_share,
-                        total_cost, datetime.now(UTC),
+                        user_id,
+                        stock_id,
+                        shares,
+                        price_per_share,
+                        total_cost,
+                        datetime.now(UTC),
                     )
 
                 # 流通株数を更新
                 await conn.execute(
-                    "UPDATE study_stocks SET circulating_shares = circulating_shares + $2 WHERE id = $1",
-                    stock_id, shares,
+                    """UPDATE study_stocks
+                    SET circulating_shares = circulating_shares + $2
+                    WHERE id = $1""",
+                    stock_id,
+                    shares,
                 )
 
                 # 取引記録
@@ -196,10 +225,19 @@ class MarketRepository(BaseRepository):
                         (user_id, stock_id, transaction_type, shares, price_per_share, total_amount)
                     VALUES ($1, $2, 'buy', $3, $4, $5)
                     """,
-                    user_id, stock_id, shares, price_per_share, total_cost,
+                    user_id,
+                    stock_id,
+                    shares,
+                    price_per_share,
+                    total_cost,
                 )
 
-        return {"shares": shares, "price": price_per_share, "total": total_cost, "balance": spent["balance"]}
+        return {
+            "shares": shares,
+            "price": price_per_share,
+            "total": total_cost,
+            "balance": spent["balance"],
+        }
 
     async def sell_stock(
         self, user_id: int, stock_id: int, shares: int, price_per_share: int
@@ -215,7 +253,9 @@ class MarketRepository(BaseRepository):
                     FROM user_stock_holdings
                     WHERE user_id = $1 AND stock_id = $2 AND shares >= $3
                     """,
-                    user_id, stock_id, shares,
+                    user_id,
+                    stock_id,
+                    shares,
                 )
                 if not holding:
                     return None
@@ -224,7 +264,8 @@ class MarketRepository(BaseRepository):
                 if new_shares == 0:
                     await conn.execute(
                         "DELETE FROM user_stock_holdings WHERE user_id = $1 AND stock_id = $2",
-                        user_id, stock_id,
+                        user_id,
+                        stock_id,
                     )
                 else:
                     ratio = new_shares / holding["shares"]
@@ -237,14 +278,22 @@ class MarketRepository(BaseRepository):
                             total_invested = $5, updated_at = $6
                         WHERE user_id = $1 AND stock_id = $2
                         """,
-                        user_id, stock_id, new_shares, new_avg,
-                        new_invested, datetime.now(UTC),
+                        user_id,
+                        stock_id,
+                        new_shares,
+                        new_avg,
+                        new_invested,
+                        datetime.now(UTC),
                     )
 
                 # 流通株数を更新
                 await conn.execute(
-                    "UPDATE study_stocks SET circulating_shares = GREATEST(circulating_shares - $2, 0) WHERE id = $1",
-                    stock_id, shares,
+                    """UPDATE study_stocks
+                    SET circulating_shares = GREATEST(
+                        circulating_shares - $2, 0
+                    ) WHERE id = $1""",
+                    stock_id,
+                    shares,
                 )
 
                 # コイン加算
@@ -257,7 +306,9 @@ class MarketRepository(BaseRepository):
                     WHERE user_id = $1
                     RETURNING balance
                     """,
-                    user_id, total_amount, datetime.now(UTC),
+                    user_id,
+                    total_amount,
+                    datetime.now(UTC),
                 )
 
                 # 取引記録
@@ -267,15 +318,21 @@ class MarketRepository(BaseRepository):
                         (user_id, stock_id, transaction_type, shares, price_per_share, total_amount)
                     VALUES ($1, $2, 'sell', $3, $4, $5)
                     """,
-                    user_id, stock_id, shares, price_per_share, total_amount,
+                    user_id,
+                    stock_id,
+                    shares,
+                    price_per_share,
+                    total_amount,
                 )
 
                 # 損益計算
                 profit = total_amount - (holding["avg_buy_price"] * shares)
 
         return {
-            "shares": shares, "price": price_per_share,
-            "total": total_amount, "profit": profit,
+            "shares": shares,
+            "price": price_per_share,
+            "total": total_amount,
+            "profit": profit,
             "balance": balance_row["balance"] if balance_row else 0,
         }
 
@@ -306,7 +363,9 @@ class MarketRepository(BaseRepository):
                 ORDER BY t.created_at DESC
                 LIMIT $2 OFFSET $3
                 """,
-                user_id, limit, offset,
+                user_id,
+                limit,
+                offset,
             )
         return [dict(r) for r in rows]
 
@@ -327,19 +386,17 @@ class MarketRepository(BaseRepository):
             )
         return [dict(r) for r in rows]
 
-    async def get_savings_account(
-        self, user_id: int, account_type: str
-    ) -> dict | None:
+    async def get_savings_account(self, user_id: int, account_type: str) -> dict | None:
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM savings_accounts WHERE user_id = $1 AND account_type = $2",
-                user_id, account_type,
+                user_id,
+                account_type,
             )
         return dict(row) if row else None
 
     async def deposit(
-        self, user_id: int, account_type: str, amount: int,
-        interest_rate: float, lock_days: int
+        self, user_id: int, account_type: str, amount: int, interest_rate: float, lock_days: int
     ) -> dict | None:
         """預金 (トランザクション: コイン消費 + 口座入金)"""
         now = datetime.now(UTC)
@@ -357,7 +414,9 @@ class MarketRepository(BaseRepository):
                     WHERE user_id = $1 AND balance >= $2
                     RETURNING balance
                     """,
-                    user_id, amount, now,
+                    user_id,
+                    amount,
+                    now,
                 )
                 if not spent:
                     return None
@@ -378,22 +437,29 @@ class MarketRepository(BaseRepository):
                         last_interest_at = COALESCE(savings_accounts.last_interest_at, $7)
                     RETURNING *
                     """,
-                    user_id, account_type, amount, interest_rate,
-                    lock_days, maturity_date, now,
+                    user_id,
+                    account_type,
+                    amount,
+                    interest_rate,
+                    lock_days,
+                    maturity_date,
+                    now,
                 )
         return dict(row) if row else None
 
-    async def withdraw(
-        self, user_id: int, account_type: str, amount: int
-    ) -> dict | None:
+    async def withdraw(self, user_id: int, account_type: str, amount: int) -> dict | None:
         """引き出し (トランザクション: 口座出金 + コイン加算)"""
         now = datetime.now(UTC)
         async with self.db_pool.acquire() as conn:
             async with conn.transaction():
                 # 口座チェック
                 account = await conn.fetchrow(
-                    "SELECT * FROM savings_accounts WHERE user_id = $1 AND account_type = $2 AND balance >= $3",
-                    user_id, account_type, amount,
+                    """SELECT * FROM savings_accounts
+                    WHERE user_id = $1 AND account_type = $2
+                    AND balance >= $3""",
+                    user_id,
+                    account_type,
+                    amount,
                 )
                 if not account:
                     return None
@@ -406,8 +472,11 @@ class MarketRepository(BaseRepository):
                 # 口座から出金
                 new_balance = account["balance"] - amount
                 await conn.execute(
-                    "UPDATE savings_accounts SET balance = $3 WHERE user_id = $1 AND account_type = $2",
-                    user_id, account_type, new_balance,
+                    """UPDATE savings_accounts SET balance = $3
+                    WHERE user_id = $1 AND account_type = $2""",
+                    user_id,
+                    account_type,
+                    new_balance,
                 )
 
                 # コイン加算
@@ -419,7 +488,9 @@ class MarketRepository(BaseRepository):
                         updated_at = $3
                     WHERE user_id = $1
                     """,
-                    user_id, amount, now,
+                    user_id,
+                    amount,
+                    now,
                 )
 
         return {"amount": amount, "new_balance": new_balance}
@@ -455,26 +526,33 @@ class MarketRepository(BaseRepository):
                             last_interest_at = $4
                         WHERE id = $1
                         """,
-                        acc["id"], new_balance, interest, now,
+                        acc["id"],
+                        new_balance,
+                        interest,
+                        now,
                     )
                     await conn.execute(
                         """
-                        INSERT INTO interest_history (account_id, amount, balance_after, calculated_at)
+                        INSERT INTO interest_history
+                        (account_id, amount, balance_after, calculated_at)
                         VALUES ($1, $2, $3, $4)
                         """,
-                        acc["id"], interest, new_balance, now,
+                        acc["id"],
+                        interest,
+                        new_balance,
+                        now,
                     )
-                results.append({
-                    "user_id": acc["user_id"],
-                    "account_type": acc["account_type"],
-                    "interest": interest,
-                    "new_balance": new_balance,
-                })
+                results.append(
+                    {
+                        "user_id": acc["user_id"],
+                        "account_type": acc["account_type"],
+                        "interest": interest,
+                        "new_balance": new_balance,
+                    }
+                )
         return results
 
-    async def get_interest_history(
-        self, user_id: int, limit: int = 20
-    ) -> list[dict]:
+    async def get_interest_history(self, user_id: int, limit: int = 20) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -485,23 +563,27 @@ class MarketRepository(BaseRepository):
                 ORDER BY ih.calculated_at DESC
                 LIMIT $2
                 """,
-                user_id, limit,
+                user_id,
+                limit,
             )
         return [dict(r) for r in rows]
 
     # ===== フリーマーケット =====
 
     async def create_listing(
-        self, seller_id: int, item_id: int, quantity: int,
-        price_per_unit: int, expires_at: datetime
+        self, seller_id: int, item_id: int, quantity: int, price_per_unit: int, expires_at: datetime
     ) -> dict | None:
         """出品 (トランザクション: インベントリ消費 + 出品作成)"""
         async with self.db_pool.acquire() as conn:
             async with conn.transaction():
                 # インベントリチェック & 消費
                 inv = await conn.fetchrow(
-                    "SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 AND quantity >= $3",
-                    seller_id, item_id, quantity,
+                    """SELECT quantity FROM user_inventory
+                    WHERE user_id = $1 AND item_id = $2
+                    AND quantity >= $3""",
+                    seller_id,
+                    item_id,
+                    quantity,
                 )
                 if not inv:
                     return None
@@ -510,12 +592,16 @@ class MarketRepository(BaseRepository):
                 if new_qty == 0:
                     await conn.execute(
                         "DELETE FROM user_inventory WHERE user_id = $1 AND item_id = $2",
-                        seller_id, item_id,
+                        seller_id,
+                        item_id,
                     )
                 else:
                     await conn.execute(
-                        "UPDATE user_inventory SET quantity = $3 WHERE user_id = $1 AND item_id = $2",
-                        seller_id, item_id, new_qty,
+                        """UPDATE user_inventory SET quantity = $3
+                        WHERE user_id = $1 AND item_id = $2""",
+                        seller_id,
+                        item_id,
+                        new_qty,
                     )
 
                 # 出品作成
@@ -526,13 +612,16 @@ class MarketRepository(BaseRepository):
                     VALUES ($1, $2, $3, $4, $5)
                     RETURNING *
                     """,
-                    seller_id, item_id, quantity, price_per_unit, expires_at,
+                    seller_id,
+                    item_id,
+                    quantity,
+                    price_per_unit,
+                    expires_at,
                 )
         return dict(row) if row else None
 
     async def get_active_listings(
-        self, item_id: int | None = None,
-        limit: int = 20, offset: int = 0
+        self, item_id: int | None = None, limit: int = 20, offset: int = 0
     ) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             if item_id:
@@ -549,7 +638,9 @@ class MarketRepository(BaseRepository):
                     ORDER BY ml.price_per_unit ASC
                     LIMIT $2 OFFSET $3
                     """,
-                    item_id, limit, offset,
+                    item_id,
+                    limit,
+                    offset,
                 )
             else:
                 rows = await conn.fetch(
@@ -564,7 +655,8 @@ class MarketRepository(BaseRepository):
                     ORDER BY ml.created_at DESC
                     LIMIT $1 OFFSET $2
                     """,
-                    limit, offset,
+                    limit,
+                    offset,
                 )
         return [dict(r) for r in rows]
 
@@ -572,11 +664,14 @@ class MarketRepository(BaseRepository):
         async with self.db_pool.acquire() as conn:
             if item_id:
                 return await conn.fetchval(
-                    "SELECT COUNT(*) FROM market_listings WHERE status = 'active' AND expires_at > NOW() AND item_id = $1",
+                    """SELECT COUNT(*) FROM market_listings
+                    WHERE status = 'active' AND expires_at > NOW()
+                    AND item_id = $1""",
                     item_id,
                 )
             return await conn.fetchval(
-                "SELECT COUNT(*) FROM market_listings WHERE status = 'active' AND expires_at > NOW()"
+                """SELECT COUNT(*) FROM market_listings
+                WHERE status = 'active' AND expires_at > NOW()"""
             )
 
     async def get_listing(self, listing_id: int) -> dict | None:
@@ -594,9 +689,7 @@ class MarketRepository(BaseRepository):
             )
         return dict(row) if row else None
 
-    async def buy_listing(
-        self, buyer_id: int, listing_id: int, fee_rate: float
-    ) -> dict | None:
+    async def buy_listing(self, buyer_id: int, listing_id: int, fee_rate: float) -> dict | None:
         """フリマ購入 (トランザクション)"""
         async with self.db_pool.acquire() as conn:
             async with conn.transaction():
@@ -629,7 +722,9 @@ class MarketRepository(BaseRepository):
                     WHERE user_id = $1 AND balance >= $2
                     RETURNING balance
                     """,
-                    buyer_id, total_with_fee, datetime.now(UTC),
+                    buyer_id,
+                    total_with_fee,
+                    datetime.now(UTC),
                 )
                 if not spent:
                     return None
@@ -643,7 +738,9 @@ class MarketRepository(BaseRepository):
                         updated_at = $3
                     WHERE user_id = $1
                     """,
-                    listing["seller_id"], total, datetime.now(UTC),
+                    listing["seller_id"],
+                    total,
+                    datetime.now(UTC),
                 )
 
                 # 買い手インベントリに追加
@@ -654,8 +751,10 @@ class MarketRepository(BaseRepository):
                     ON CONFLICT (user_id, item_id)
                     DO UPDATE SET quantity = user_inventory.quantity + $3
                     """,
-                    buyer_id, listing["item_id"],
-                    listing["quantity"], datetime.now(UTC),
+                    buyer_id,
+                    listing["item_id"],
+                    listing["quantity"],
+                    datetime.now(UTC),
                 )
 
                 # 出品ステータス更新
@@ -672,9 +771,14 @@ class MarketRepository(BaseRepository):
                          quantity, price_per_unit, total_amount, fee)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     """,
-                    listing_id, listing["seller_id"], buyer_id,
-                    listing["item_id"], listing["quantity"],
-                    listing["price_per_unit"], total, fee,
+                    listing_id,
+                    listing["seller_id"],
+                    buyer_id,
+                    listing["item_id"],
+                    listing["quantity"],
+                    listing["price_per_unit"],
+                    total,
+                    fee,
                 )
 
         return {
@@ -691,8 +795,11 @@ class MarketRepository(BaseRepository):
         async with self.db_pool.acquire() as conn:
             async with conn.transaction():
                 listing = await conn.fetchrow(
-                    "SELECT * FROM market_listings WHERE id = $1 AND seller_id = $2 AND status = 'active' FOR UPDATE",
-                    listing_id, seller_id,
+                    """SELECT * FROM market_listings
+                    WHERE id = $1 AND seller_id = $2
+                    AND status = 'active' FOR UPDATE""",
+                    listing_id,
+                    seller_id,
                 )
                 if not listing:
                     return False
@@ -705,8 +812,10 @@ class MarketRepository(BaseRepository):
                     ON CONFLICT (user_id, item_id)
                     DO UPDATE SET quantity = user_inventory.quantity + $3
                     """,
-                    seller_id, listing["item_id"],
-                    listing["quantity"], datetime.now(UTC),
+                    seller_id,
+                    listing["item_id"],
+                    listing["quantity"],
+                    datetime.now(UTC),
                 )
 
                 await conn.execute(
@@ -715,9 +824,7 @@ class MarketRepository(BaseRepository):
                 )
         return True
 
-    async def get_user_listings(
-        self, user_id: int, status: str | None = None
-    ) -> list[dict]:
+    async def get_user_listings(self, user_id: int, status: str | None = None) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             if status:
                 rows = await conn.fetch(
@@ -728,7 +835,8 @@ class MarketRepository(BaseRepository):
                     WHERE ml.seller_id = $1 AND ml.status = $2
                     ORDER BY ml.created_at DESC
                     """,
-                    user_id, status,
+                    user_id,
+                    status,
                 )
             else:
                 rows = await conn.fetch(
@@ -764,15 +872,15 @@ class MarketRepository(BaseRepository):
                         ON CONFLICT (user_id, item_id)
                         DO UPDATE SET quantity = user_inventory.quantity + $3
                         """,
-                        listing["seller_id"], listing["item_id"],
-                        listing["quantity"], datetime.now(UTC),
+                        listing["seller_id"],
+                        listing["item_id"],
+                        listing["quantity"],
+                        datetime.now(UTC),
                     )
                 count += 1
         return count
 
-    async def get_item_price_history(
-        self, item_id: int, days: int = 30
-    ) -> list[dict]:
+    async def get_item_price_history(self, item_id: int, days: int = 30) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch(
                 """
@@ -781,7 +889,8 @@ class MarketRepository(BaseRepository):
                   AND recorded_date >= CURRENT_DATE - $2::INT
                 ORDER BY recorded_date
                 """,
-                item_id, days,
+                item_id,
+                days,
             )
         return [dict(r) for r in rows]
 
@@ -790,7 +899,8 @@ class MarketRepository(BaseRepository):
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO item_price_history (item_id, avg_price, min_price, max_price, volume, recorded_date)
+                INSERT INTO item_price_history
+                (item_id, avg_price, min_price, max_price, volume, recorded_date)
                 SELECT
                     mt.item_id,
                     AVG(mt.price_per_unit)::INT,

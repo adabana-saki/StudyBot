@@ -106,7 +106,12 @@ class ChallengeRepository(BaseRepository):
                 )
                 return True
             except Exception:
-                logger.debug("チャレンジ参加失敗 (challenge=%d, user=%d)", challenge_id, user_id, exc_info=True)
+                logger.debug(
+                    "チャレンジ参加失敗 (challenge=%d, user=%d)",
+                    challenge_id,
+                    user_id,
+                    exc_info=True,
+                )
                 return False
 
     async def get_participant(self, challenge_id: int, user_id: int) -> dict | None:

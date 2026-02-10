@@ -344,7 +344,9 @@ class NudgeManager:
             valid_code = await self.lock_settings_repo.get_valid_code(user_id, session_id, code)
 
             if not valid_code:
-                return {"error": "無効なコードです。コードが間違っているか、有効期限が切れています。"}
+                return {
+                    "error": "無効なコードです。コードが間違っているか、有効期限が切れています。"
+                }
 
             # コードを使用済みにする
             await self.lock_settings_repo.use_code(valid_code["id"])

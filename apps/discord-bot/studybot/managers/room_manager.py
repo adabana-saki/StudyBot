@@ -97,20 +97,20 @@ class RoomManager:
         joined_at = member.get("joined_at", datetime.now(UTC))
         now = datetime.now(UTC)
         if joined_at.tzinfo is None:
-            from datetime import timezone
-            joined_at = joined_at.replace(tzinfo=timezone.utc)
+            joined_at = joined_at.replace(tzinfo=UTC)
         duration = int((now - joined_at).total_seconds() / 60)
 
         await self.room_repo.record_room_history(
-            room_id, user_id, member.get("platform", "discord"),
-            joined_at, duration,
+            room_id,
+            user_id,
+            member.get("platform", "discord"),
+            joined_at,
+            duration,
         )
 
         # Update collective progress
         if duration > 0:
-            progress = await self.room_repo.update_collective_progress(
-                room_id, duration
-            )
+            progress = await self.room_repo.update_collective_progress(room_id, duration)
             if progress and progress["collective_goal_minutes"] > 0:
                 if progress["collective_progress_minutes"] >= progress["collective_goal_minutes"]:
                     if self.event_publisher:
@@ -149,9 +149,7 @@ class RoomManager:
         """全ルーム取得"""
         return await self.room_repo.get_guild_rooms(guild_id)
 
-    async def sync_vc_room(
-        self, vc_channel_id: int, member_ids: list[int]
-    ) -> None:
+    async def sync_vc_room(self, vc_channel_id: int, member_ids: list[int]) -> None:
         """Discord VCメンバーとルームを同期"""
         room = await self.room_repo.get_room_by_vc_channel(vc_channel_id)
         if not room:

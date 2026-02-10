@@ -1,7 +1,6 @@
 """チームバトルのテスト"""
 
 from datetime import date, timedelta
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -36,11 +35,20 @@ async def test_create_battle(battle_manager):
         {"id": 2, "name": "Beta", "guild_id": 100, "member_count": 4},
         # create_battle
         {
-            "id": 1, "guild_id": 100, "team_a_id": 1, "team_b_id": 2,
-            "goal_type": "study_minutes", "duration_days": 7,
-            "start_date": today, "end_date": today + timedelta(days=7),
-            "team_a_score": 0, "team_b_score": 0, "winner_team_id": None,
-            "status": "pending", "xp_multiplier": 2.0, "created_at": None,
+            "id": 1,
+            "guild_id": 100,
+            "team_a_id": 1,
+            "team_b_id": 2,
+            "goal_type": "study_minutes",
+            "duration_days": 7,
+            "start_date": today,
+            "end_date": today + timedelta(days=7),
+            "team_a_score": 0,
+            "team_b_score": 0,
+            "winner_team_id": None,
+            "status": "pending",
+            "xp_multiplier": 2.0,
+            "created_at": None,
         },
     ]
 
@@ -88,14 +96,17 @@ async def test_accept_battle(battle_manager):
 async def test_add_contribution(battle_manager):
     """貢献記録テスト"""
     manager, conn = battle_manager
-    today = date.today()
+    date.today()
 
     conn.fetch.return_value = [
         {
-            "id": 1, "goal_type": "study_minutes",
+            "id": 1,
+            "goal_type": "study_minutes",
             "user_team_id": 1,
-            "team_a_id": 1, "team_b_id": 2,
-            "team_a_score": 100, "team_b_score": 50,
+            "team_a_id": 1,
+            "team_b_id": 2,
+            "team_a_score": 100,
+            "team_b_score": 50,
             "status": "active",
         }
     ]
@@ -103,12 +114,17 @@ async def test_add_contribution(battle_manager):
     conn.fetchrow.side_effect = [
         # update_battle_score: SELECT * FROM team_battles
         {
-            "id": 1, "team_a_id": 1, "team_b_id": 2,
-            "team_a_score": 100, "team_b_score": 50,
+            "id": 1,
+            "team_a_id": 1,
+            "team_b_id": 2,
+            "team_a_score": 100,
+            "team_b_score": 50,
         },
         # update_battle_score: UPDATE RETURNING *
         {
-            "id": 1, "team_a_score": 130, "team_b_score": 50,
+            "id": 1,
+            "team_a_score": 130,
+            "team_b_score": 50,
         },
     ]
 
@@ -124,9 +140,13 @@ async def test_check_battle_completion(battle_manager):
 
     conn.fetch.return_value = [
         {
-            "id": 1, "team_a_id": 1, "team_b_id": 2,
-            "team_a_score": 500, "team_b_score": 300,
-            "status": "active", "end_date": yesterday,
+            "id": 1,
+            "team_a_id": 1,
+            "team_b_id": 2,
+            "team_a_score": 500,
+            "team_b_score": 300,
+            "status": "active",
+            "end_date": yesterday,
         }
     ]
     conn.execute.return_value = None
@@ -144,9 +164,13 @@ async def test_check_battle_completion_draw(battle_manager):
 
     conn.fetch.return_value = [
         {
-            "id": 2, "team_a_id": 1, "team_b_id": 2,
-            "team_a_score": 300, "team_b_score": 300,
-            "status": "active", "end_date": yesterday,
+            "id": 2,
+            "team_a_id": 1,
+            "team_b_id": 2,
+            "team_a_score": 300,
+            "team_b_score": 300,
+            "status": "active",
+            "end_date": yesterday,
         }
     ]
     conn.execute.return_value = None

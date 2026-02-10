@@ -1,13 +1,11 @@
 """MarketManager テスト — 株式市場・貯金銀行・フリーマーケット"""
 
-import math
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from studybot.managers.market_manager import MarketManager
-
 from tests.conftest import MockAsyncContextManager
 
 
@@ -36,12 +34,21 @@ class TestStockMarket:
         manager, conn = market_manager
         conn.fetch.return_value = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "", "emoji": "📐",
-                "sector": "理系", "base_price": 100, "current_price": 110,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 50, "active": True,
-                "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 110,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 50,
+                "active": True,
+                "listed_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             },
         ]
 
@@ -54,12 +61,21 @@ class TestStockMarket:
     async def test_get_stock_detail(self, market_manager):
         manager, conn = market_manager
         conn.fetchrow.return_value = {
-            "id": 1, "symbol": "CODE", "name": "プログラミング株",
-            "topic_keyword": "プログラミング", "description": "テスト",
-            "emoji": "💻", "sector": "技術", "base_price": 100,
-            "current_price": 120, "previous_close": 100,
-            "total_shares": 10000, "circulating_shares": 100, "active": True,
-            "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+            "id": 1,
+            "symbol": "CODE",
+            "name": "プログラミング株",
+            "topic_keyword": "プログラミング",
+            "description": "テスト",
+            "emoji": "💻",
+            "sector": "技術",
+            "base_price": 100,
+            "current_price": 120,
+            "previous_close": 100,
+            "total_shares": 10000,
+            "circulating_shares": 100,
+            "active": True,
+            "listed_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
         }
         conn.fetch.return_value = []
 
@@ -82,12 +98,21 @@ class TestStockMarket:
         # get_stock_by_symbol
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "", "emoji": "📐",
-                "sector": "理系", "base_price": 100, "current_price": 100,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 0, "active": True,
-                "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 100,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 0,
+                "active": True,
+                "listed_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             },
             # spend coins (balance check)
             {"balance": 900},
@@ -126,12 +151,21 @@ class TestStockMarket:
         manager, conn = market_manager
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "", "emoji": "📐",
-                "sector": "理系", "base_price": 100, "current_price": 100,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 0, "active": True,
-                "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 100,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 0,
+                "active": True,
+                "listed_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             },
             # spend coins - fails (balance < needed)
             None,
@@ -146,12 +180,21 @@ class TestStockMarket:
         conn.fetchrow.side_effect = [
             # get_stock_by_symbol
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "", "emoji": "📐",
-                "sector": "理系", "base_price": 100, "current_price": 120,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 10, "active": True,
-                "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 120,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 10,
+                "active": True,
+                "listed_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             },
             # holding check
             {"shares": 5, "avg_buy_price": 100, "total_invested": 500},
@@ -171,12 +214,21 @@ class TestStockMarket:
         manager, conn = market_manager
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "", "emoji": "📐",
-                "sector": "理系", "base_price": 100, "current_price": 120,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 10, "active": True,
-                "listed_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 120,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 10,
+                "active": True,
+                "listed_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
             },
             None,  # no holding found
         ]
@@ -198,10 +250,17 @@ class TestStockMarket:
         manager, conn = market_manager
         conn.fetch.return_value = [
             {
-                "id": 1, "user_id": 123, "stock_id": 1, "shares": 10,
-                "avg_buy_price": 100, "total_invested": 1000,
-                "symbol": "MATH", "name": "数学株", "emoji": "📐",
-                "current_price": 120, "sector": "理系",
+                "id": 1,
+                "user_id": 123,
+                "stock_id": 1,
+                "shares": 10,
+                "avg_buy_price": 100,
+                "total_invested": 1000,
+                "symbol": "MATH",
+                "name": "数学株",
+                "emoji": "📐",
+                "current_price": 120,
+                "sector": "理系",
                 "updated_at": datetime.now(UTC),
             },
         ]
@@ -219,11 +278,17 @@ class TestStockMarket:
         manager, conn = market_manager
         conn.fetch.return_value = [
             {
-                "id": 1, "user_id": 123, "stock_id": 1,
-                "transaction_type": "buy", "shares": 5,
-                "price_per_share": 100, "total_amount": 500,
+                "id": 1,
+                "user_id": 123,
+                "stock_id": 1,
+                "transaction_type": "buy",
+                "shares": 5,
+                "price_per_share": 100,
+                "total_amount": 500,
                 "created_at": datetime.now(UTC),
-                "symbol": "MATH", "name": "数学株", "emoji": "📐",
+                "symbol": "MATH",
+                "name": "数学株",
+                "emoji": "📐",
             }
         ]
         conn.fetchval.return_value = 1
@@ -236,8 +301,12 @@ class TestStockMarket:
     async def test_price_algorithm_trend_up(self, market_manager):
         manager, conn = market_manager
         stock = {
-            "id": 1, "symbol": "MATH", "topic_keyword": "数学",
-            "base_price": 100, "current_price": 100, "previous_close": 100,
+            "id": 1,
+            "symbol": "MATH",
+            "topic_keyword": "数学",
+            "base_price": 100,
+            "current_price": 100,
+            "previous_close": 100,
         }
         # this week = 200 min, last week = 100 min → trend = 201/101 ≈ 1.99
         conn.fetchval.side_effect = [200, 100, 0]
@@ -249,8 +318,12 @@ class TestStockMarket:
     async def test_price_algorithm_trend_down(self, market_manager):
         manager, conn = market_manager
         stock = {
-            "id": 1, "symbol": "MATH", "topic_keyword": "数学",
-            "base_price": 100, "current_price": 100, "previous_close": 100,
+            "id": 1,
+            "symbol": "MATH",
+            "topic_keyword": "数学",
+            "base_price": 100,
+            "current_price": 100,
+            "previous_close": 100,
         }
         # this week = 10 min, last week = 200 min → trend = 11/201 ≈ 0.055
         conn.fetchval.side_effect = [10, 200, 0]
@@ -262,8 +335,12 @@ class TestStockMarket:
     async def test_price_algorithm_circuit_breaker(self, market_manager):
         manager, conn = market_manager
         stock = {
-            "id": 1, "symbol": "MATH", "topic_keyword": "数学",
-            "base_price": 100, "current_price": 100, "previous_close": 100,
+            "id": 1,
+            "symbol": "MATH",
+            "topic_keyword": "数学",
+            "base_price": 100,
+            "current_price": 100,
+            "previous_close": 100,
         }
         # Extreme trend: this week = 1000, last week = 1
         conn.fetchval.side_effect = [1000, 1, 0]
@@ -276,8 +353,12 @@ class TestStockMarket:
     async def test_price_algorithm_floor(self, market_manager):
         manager, conn = market_manager
         stock = {
-            "id": 1, "symbol": "MATH", "topic_keyword": "数学",
-            "base_price": 100, "current_price": 12, "previous_close": 12,
+            "id": 1,
+            "symbol": "MATH",
+            "topic_keyword": "数学",
+            "base_price": 100,
+            "current_price": 12,
+            "previous_close": 12,
         }
         # Near floor: tiny activity
         conn.fetchval.side_effect = [0, 0, -100]
@@ -289,8 +370,12 @@ class TestStockMarket:
     async def test_price_algorithm_ceiling(self, market_manager):
         manager, conn = market_manager
         stock = {
-            "id": 1, "symbol": "MATH", "topic_keyword": "数学",
-            "base_price": 9000, "current_price": 9900, "previous_close": 9900,
+            "id": 1,
+            "symbol": "MATH",
+            "topic_keyword": "数学",
+            "base_price": 9000,
+            "current_price": 9900,
+            "previous_close": 9900,
         }
         conn.fetchval.side_effect = [10000, 1, 1000]
 
@@ -317,10 +402,15 @@ class TestSavingsBank:
         conn.fetchrow.side_effect = [
             {"balance": 900},  # spend coins
             {
-                "id": 1, "user_id": 123, "account_type": "regular",
-                "balance": 100, "interest_rate": 0.001,
-                "lock_days": 0, "maturity_date": None,
-                "total_interest_earned": 0, "last_interest_at": None,
+                "id": 1,
+                "user_id": 123,
+                "account_type": "regular",
+                "balance": 100,
+                "interest_rate": 0.001,
+                "lock_days": 0,
+                "maturity_date": None,
+                "total_interest_earned": 0,
+                "last_interest_at": None,
                 "created_at": datetime.now(UTC),
             },
         ]
@@ -336,10 +426,15 @@ class TestSavingsBank:
         conn.fetchrow.side_effect = [
             {"balance": 500},
             {
-                "id": 2, "user_id": 123, "account_type": "fixed",
-                "balance": 500, "interest_rate": 0.003,
-                "lock_days": 7, "maturity_date": datetime.now(UTC) + timedelta(days=7),
-                "total_interest_earned": 0, "last_interest_at": None,
+                "id": 2,
+                "user_id": 123,
+                "account_type": "fixed",
+                "balance": 500,
+                "interest_rate": 0.003,
+                "lock_days": 7,
+                "maturity_date": datetime.now(UTC) + timedelta(days=7),
+                "total_interest_earned": 0,
+                "last_interest_at": None,
                 "created_at": datetime.now(UTC),
             },
         ]
@@ -372,10 +467,15 @@ class TestSavingsBank:
         manager, conn = market_manager
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "user_id": 123, "account_type": "regular",
-                "balance": 500, "interest_rate": 0.001,
-                "lock_days": 0, "maturity_date": None,
-                "total_interest_earned": 5, "last_interest_at": datetime.now(UTC),
+                "id": 1,
+                "user_id": 123,
+                "account_type": "regular",
+                "balance": 500,
+                "interest_rate": 0.001,
+                "lock_days": 0,
+                "maturity_date": None,
+                "total_interest_earned": 5,
+                "last_interest_at": datetime.now(UTC),
                 "created_at": datetime.now(UTC),
             },
         ]
@@ -389,10 +489,15 @@ class TestSavingsBank:
     async def test_withdraw_fixed_before_maturity(self, market_manager):
         manager, conn = market_manager
         conn.fetchrow.return_value = {
-            "id": 2, "user_id": 123, "account_type": "fixed",
-            "balance": 500, "interest_rate": 0.003,
-            "lock_days": 7, "maturity_date": datetime.now(UTC) + timedelta(days=5),
-            "total_interest_earned": 0, "last_interest_at": None,
+            "id": 2,
+            "user_id": 123,
+            "account_type": "fixed",
+            "balance": 500,
+            "interest_rate": 0.003,
+            "lock_days": 7,
+            "maturity_date": datetime.now(UTC) + timedelta(days=5),
+            "total_interest_earned": 0,
+            "last_interest_at": None,
             "created_at": datetime.now(UTC),
         }
 
@@ -418,8 +523,11 @@ class TestFleaMarket:
         conn.fetchrow.side_effect = [
             {"quantity": 5},  # inv check
             {
-                "id": 1, "seller_id": 123, "item_id": 10,
-                "quantity": 2, "price_per_unit": 50,
+                "id": 1,
+                "seller_id": 123,
+                "item_id": 10,
+                "quantity": 2,
+                "price_per_unit": 50,
                 "status": "active",
                 "expires_at": datetime.now(UTC) + timedelta(days=7),
                 "created_at": datetime.now(UTC),
@@ -455,10 +563,15 @@ class TestFleaMarket:
         # get_listing
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "seller_id": 999, "item_id": 10,
-                "quantity": 1, "price_per_unit": 100,
-                "status": "active", "name": "テストアイテム",
-                "emoji": "🎁", "rarity": "common",
+                "id": 1,
+                "seller_id": 999,
+                "item_id": 10,
+                "quantity": 1,
+                "price_per_unit": 100,
+                "status": "active",
+                "name": "テストアイテム",
+                "emoji": "🎁",
+                "rarity": "common",
                 "seller_name": "Seller",
                 "expires_at": datetime.now(UTC) + timedelta(days=3),
                 "created_at": datetime.now(UTC),
@@ -470,10 +583,16 @@ class TestFleaMarket:
         conn.execute.return_value = None
 
         # Mock the repository directly
-        manager.repository.buy_listing = AsyncMock(return_value={
-            "listing_id": 1, "item_id": 10, "quantity": 1,
-            "total": 100, "fee": 5, "balance": 895,
-        })
+        manager.repository.buy_listing = AsyncMock(
+            return_value={
+                "listing_id": 1,
+                "item_id": 10,
+                "quantity": 1,
+                "total": 100,
+                "fee": 5,
+                "balance": 895,
+            }
+        )
 
         result = await manager.buy_listing(123, 1)
         assert "error" not in result
@@ -492,10 +611,16 @@ class TestFleaMarket:
     async def test_buy_listing_own_item(self, market_manager):
         manager, conn = market_manager
         conn.fetchrow.return_value = {
-            "id": 1, "seller_id": 123, "item_id": 10,
-            "quantity": 1, "price_per_unit": 100,
-            "status": "active", "name": "Test", "emoji": "🎁",
-            "rarity": "common", "seller_name": "Self",
+            "id": 1,
+            "seller_id": 123,
+            "item_id": 10,
+            "quantity": 1,
+            "price_per_unit": 100,
+            "status": "active",
+            "name": "Test",
+            "emoji": "🎁",
+            "rarity": "common",
+            "seller_name": "Self",
             "expires_at": datetime.now(UTC) + timedelta(days=3),
             "created_at": datetime.now(UTC),
         }
@@ -525,10 +650,15 @@ class TestFleaMarket:
         manager, conn = market_manager
         conn.fetch.return_value = [
             {
-                "id": 1, "seller_id": 999, "item_id": 10,
-                "quantity": 1, "price_per_unit": 100,
-                "status": "active", "name": "Test",
-                "emoji": "🎁", "rarity": "common",
+                "id": 1,
+                "seller_id": 999,
+                "item_id": 10,
+                "quantity": 1,
+                "price_per_unit": 100,
+                "status": "active",
+                "name": "Test",
+                "emoji": "🎁",
+                "rarity": "common",
                 "seller_name": "Seller",
                 "expires_at": datetime.now(UTC) + timedelta(days=3),
                 "created_at": datetime.now(UTC),

@@ -84,9 +84,7 @@ class LearningPathCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("パス登録", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("パス登録", result["error"]))
             return
 
         embed = path_embed(
@@ -111,15 +109,11 @@ class LearningPathCog(commands.Cog):
         if path_id:
             result = await self.manager.get_progress(interaction.user.id, path_id)
             if "error" in result:
-                await interaction.followup.send(
-                    embed=error_embed("進捗表示", result["error"])
-                )
+                await interaction.followup.send(embed=error_embed("進捗表示", result["error"]))
                 return
 
             pct = (
-                int(result["completed_count"] / result["total"] * 100)
-                if result["total"] > 0
-                else 0
+                int(result["completed_count"] / result["total"] * 100) if result["total"] > 0 else 0
             )
             filled = int(15 * min(1.0, pct / 100))
             bar = "\u2588" * filled + "\u2591" * (15 - filled)
@@ -151,8 +145,7 @@ class LearningPathCog(commands.Cog):
             if result["path_completed"]:
                 embed.set_footer(
                     text=(
-                        f"報酬: {result['reward_xp']}XP / "
-                        f"{result['reward_coins']}コイン 獲得済み"
+                        f"報酬: {result['reward_xp']}XP / {result['reward_coins']}コイン 獲得済み"
                     )
                 )
             await interaction.followup.send(embed=embed)
@@ -173,20 +166,13 @@ class LearningPathCog(commands.Cog):
                 color=COLORS["learning_path"],
             )
             for r in results:
-                pct = (
-                    int(r["completed_count"] / r["total"] * 100)
-                    if r["total"] > 0
-                    else 0
-                )
+                pct = int(r["completed_count"] / r["total"] * 100) if r["total"] > 0 else 0
                 filled = int(10 * min(1.0, pct / 100))
                 bar = "\u2588" * filled + "\u2591" * (10 - filled)
                 status = "\u2705 完了" if r["path_completed"] else f"[{bar}] {pct}%"
                 embed.add_field(
                     name=f"{r['emoji']} {r['name']}",
-                    value=(
-                        f"{status}\n"
-                        f"{r['completed_count']}/{r['total']} マイルストーン"
-                    ),
+                    value=(f"{status}\n{r['completed_count']}/{r['total']} マイルストーン"),
                     inline=True,
                 )
             await interaction.followup.send(embed=embed)
@@ -213,11 +199,7 @@ class LearningPathCog(commands.Cog):
             )
             return
 
-        pct = (
-            int(result["completed_count"] / result["total"] * 100)
-            if result["total"] > 0
-            else 0
-        )
+        pct = int(result["completed_count"] / result["total"] * 100) if result["total"] > 0 else 0
         filled = int(15 * min(1.0, pct / 100))
         bar = "\u2588" * filled + "\u2591" * (15 - filled)
 

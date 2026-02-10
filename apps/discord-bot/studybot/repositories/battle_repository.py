@@ -31,16 +31,20 @@ class BattleRepository(BaseRepository):
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 RETURNING *
                 """,
-                guild_id, team_a_id, team_b_id, goal_type,
-                duration_days, start_date, end_date, xp_multiplier,
+                guild_id,
+                team_a_id,
+                team_b_id,
+                goal_type,
+                duration_days,
+                start_date,
+                end_date,
+                xp_multiplier,
             )
             return dict(row) if row else {}
 
     async def get_battle(self, battle_id: int) -> dict | None:
         async with self.db_pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM team_battles WHERE id = $1", battle_id
-            )
+            row = await conn.fetchrow("SELECT * FROM team_battles WHERE id = $1", battle_id)
             return dict(row) if row else None
 
     async def get_active_battles(self, guild_id: int) -> list[dict]:
@@ -65,22 +69,17 @@ class BattleRepository(BaseRepository):
             )
             return [dict(r) for r in rows]
 
-    async def update_battle_status(
-        self, battle_id: int, status: str
-    ) -> None:
+    async def update_battle_status(self, battle_id: int, status: str) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 "UPDATE team_battles SET status = $2 WHERE id = $1",
-                battle_id, status,
+                battle_id,
+                status,
             )
 
-    async def update_battle_score(
-        self, battle_id: int, team_id: int, delta: int
-    ) -> dict | None:
+    async def update_battle_score(self, battle_id: int, team_id: int, delta: int) -> dict | None:
         async with self.db_pool.acquire() as conn:
-            battle = await conn.fetchrow(
-                "SELECT * FROM team_battles WHERE id = $1", battle_id
-            )
+            battle = await conn.fetchrow("SELECT * FROM team_battles WHERE id = $1", battle_id)
             if not battle:
                 return None
 
@@ -96,7 +95,8 @@ class BattleRepository(BaseRepository):
                 UPDATE team_battles SET {col} = {col} + $2
                 WHERE id = $1 RETURNING *
                 """,
-                battle_id, delta,
+                battle_id,
+                delta,
             )
             return dict(row) if row else None
 
@@ -115,7 +115,11 @@ class BattleRepository(BaseRepository):
                     (battle_id, user_id, team_id, contribution, source)
                 VALUES ($1, $2, $3, $4, $5)
                 """,
-                battle_id, user_id, team_id, amount, source,
+                battle_id,
+                user_id,
+                team_id,
+                amount,
+                source,
             )
 
     async def get_battle_contributions(self, battle_id: int) -> list[dict]:
@@ -135,9 +139,7 @@ class BattleRepository(BaseRepository):
             )
             return [dict(r) for r in rows]
 
-    async def complete_battle(
-        self, battle_id: int, winner_team_id: int | None
-    ) -> None:
+    async def complete_battle(self, battle_id: int, winner_team_id: int | None) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 """
@@ -145,7 +147,8 @@ class BattleRepository(BaseRepository):
                 SET status = 'completed', winner_team_id = $2
                 WHERE id = $1
                 """,
-                battle_id, winner_team_id,
+                battle_id,
+                winner_team_id,
             )
 
     async def get_user_active_battles(self, user_id: int) -> list[dict]:

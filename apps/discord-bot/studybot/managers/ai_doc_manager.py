@@ -226,4 +226,3 @@ class AIDocManager:
             return {"error": "説明の生成に失敗しました。"}
 
         return {"explanation": explanation}
-

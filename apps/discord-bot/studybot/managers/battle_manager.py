@@ -106,9 +106,7 @@ class BattleManager:
                 await self.battle_repo.record_contribution(
                     battle["id"], user_id, team_id, amount, source
                 )
-                await self.battle_repo.update_battle_score(
-                    battle["id"], team_id, amount
-                )
+                await self.battle_repo.update_battle_score(battle["id"], team_id, amount)
 
     async def check_battle_completion(self) -> list[dict]:
         """期限切れバトルをチェックして完了処理"""
@@ -123,12 +121,14 @@ class BattleManager:
                 winner = None  # draw
 
             await self.battle_repo.complete_battle(battle["id"], winner)
-            results.append({
-                "battle_id": battle["id"],
-                "winner_team_id": winner,
-                "team_a_score": battle["team_a_score"],
-                "team_b_score": battle["team_b_score"],
-            })
+            results.append(
+                {
+                    "battle_id": battle["id"],
+                    "winner_team_id": winner,
+                    "team_a_score": battle["team_a_score"],
+                    "team_b_score": battle["team_b_score"],
+                }
+            )
         return results
 
     async def get_battle_detail(self, battle_id: int) -> dict | None:

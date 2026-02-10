@@ -53,12 +53,8 @@ class StudyBot(commands.Bot):
             try:
                 self.redis_client = RedisClient(settings.REDIS_URL)
                 await self.redis_client.connect()
-                self.event_publisher = EventPublisher(
-                    self.redis_client, db_pool=self.db_pool
-                )
-                self.session_sync = SessionSyncService(
-                    self.db_pool, self.redis_client
-                )
+                self.event_publisher = EventPublisher(self.redis_client, db_pool=self.db_pool)
+                self.session_sync = SessionSyncService(self.db_pool, self.redis_client)
                 set_redis_client(self.redis_client)
                 logger.info("Redis + SessionSync + AIキャッシュ接続完了")
             except Exception as e:

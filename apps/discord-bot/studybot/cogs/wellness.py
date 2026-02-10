@@ -159,9 +159,7 @@ class WellnessCog(commands.Cog):
                 inline=False,
             )
 
-        embed.set_footer(
-            text=f"/pomodoro start work_min:{result['recommended_minutes']} で開始"
-        )
+        embed.set_footer(text=f"/pomodoro start work_min:{result['recommended_minutes']} で開始")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @wellness_group.command(name="stats", description="ウェルネス統計を表示")

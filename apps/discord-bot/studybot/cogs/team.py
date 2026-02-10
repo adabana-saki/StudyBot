@@ -43,9 +43,7 @@ class TeamCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("チーム作成", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("チーム作成", result["error"]))
             return
 
         embed = discord.Embed(
@@ -53,20 +51,14 @@ class TeamCog(commands.Cog):
             description=f"**{result['name']}**",
             color=COLORS["team"],
         )
-        embed.add_field(
-            name="チームID", value=f"#{result['team_id']}", inline=True
-        )
-        embed.add_field(
-            name="最大人数", value=f"{result['max_members']}人", inline=True
-        )
+        embed.add_field(name="チームID", value=f"#{result['team_id']}", inline=True)
+        embed.add_field(name="最大人数", value=f"{result['max_members']}人", inline=True)
         embed.set_footer(text="/team join で参加しよう！")
         await interaction.followup.send(embed=embed)
 
     @team_group.command(name="join", description="チームに参加")
     @app_commands.describe(team_id="チームID")
-    async def team_join(
-        self, interaction: discord.Interaction, team_id: int
-    ):
+    async def team_join(self, interaction: discord.Interaction, team_id: int):
         await interaction.response.defer()
         result = await self.manager.join_team(
             team_id=team_id,
@@ -75,23 +67,18 @@ class TeamCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("チーム参加", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("チーム参加", result["error"]))
             return
 
         embed = team_embed(
             "チーム参加",
-            f"**{result['name']}** に参加しました！\n"
-            f"メンバー数: {result['member_count']}人",
+            f"**{result['name']}** に参加しました！\nメンバー数: {result['member_count']}人",
         )
         await interaction.followup.send(embed=embed)
 
     @team_group.command(name="leave", description="チームから脱退")
     @app_commands.describe(team_id="チームID")
-    async def team_leave(
-        self, interaction: discord.Interaction, team_id: int
-    ):
+    async def team_leave(self, interaction: discord.Interaction, team_id: int):
         await interaction.response.defer()
         result = await self.manager.leave_team(
             team_id=team_id,
@@ -99,9 +86,7 @@ class TeamCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("チーム脱退", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("チーム脱退", result["error"]))
             return
 
         embed = team_embed(
@@ -113,9 +98,7 @@ class TeamCog(commands.Cog):
     @team_group.command(name="list", description="サーバーのチーム一覧")
     async def team_list(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        teams = await self.manager.list_guild_teams(
-            interaction.guild_id or 0
-        )
+        teams = await self.manager.list_guild_teams(interaction.guild_id or 0)
 
         if not teams:
             embed = team_embed(
@@ -125,9 +108,7 @@ class TeamCog(commands.Cog):
             await interaction.followup.send(embed=embed)
             return
 
-        embed = discord.Embed(
-            title="スタディチーム一覧", color=COLORS["team"]
-        )
+        embed = discord.Embed(title="スタディチーム一覧", color=COLORS["team"])
         for t in teams[:10]:
             embed.add_field(
                 name=f"#{t['id']} {t['name']}",
@@ -141,9 +122,7 @@ class TeamCog(commands.Cog):
 
     @team_group.command(name="stats", description="チーム統計を表示")
     @app_commands.describe(team_id="チームID")
-    async def team_stats(
-        self, interaction: discord.Interaction, team_id: int
-    ):
+    async def team_stats(self, interaction: discord.Interaction, team_id: int):
         await interaction.response.defer()
         result = await self.manager.get_team_stats(team_id)
 
@@ -204,9 +183,7 @@ class TeamCog(commands.Cog):
 
     @team_group.command(name="quest", description="チームクエストを表示")
     @app_commands.describe(team_id="チームID")
-    async def team_quest(
-        self, interaction: discord.Interaction, team_id: int
-    ):
+    async def team_quest(self, interaction: discord.Interaction, team_id: int):
         await interaction.response.defer()
 
         team = await self.manager.repository.get_team(team_id)
@@ -247,8 +224,7 @@ class TeamCog(commands.Cog):
             embed.add_field(
                 name=f"#{quest_id} {label} ({target}{unit})",
                 value=(
-                    f"{status}\n"
-                    f"報酬: {q.get('reward_xp', 0)} XP + {q.get('reward_coins', 0)} 🪙"
+                    f"{status}\n報酬: {q.get('reward_xp', 0)} XP + {q.get('reward_coins', 0)} 🪙"
                 ),
                 inline=False,
             )
@@ -258,9 +234,7 @@ class TeamCog(commands.Cog):
 
     @team_group.command(name="quest_claim", description="チームクエスト報酬を受け取る")
     @app_commands.describe(team_id="チームID", quest_id="クエストID")
-    async def team_quest_claim(
-        self, interaction: discord.Interaction, team_id: int, quest_id: int
-    ):
+    async def team_quest_claim(self, interaction: discord.Interaction, team_id: int, quest_id: int):
         await interaction.response.defer()
         result = await self.manager.claim_team_quest(team_id, quest_id)
 
@@ -284,16 +258,12 @@ class TeamCog(commands.Cog):
 
     @team_group.command(name="members", description="チームメンバーを表示")
     @app_commands.describe(team_id="チームID")
-    async def team_members(
-        self, interaction: discord.Interaction, team_id: int
-    ):
+    async def team_members(self, interaction: discord.Interaction, team_id: int):
         await interaction.response.defer()
         result = await self.manager.get_team_members(team_id)
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("チームメンバー", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("チームメンバー", result["error"]))
             return
 
         team = result["team"]

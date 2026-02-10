@@ -45,9 +45,7 @@ class EventPublisher:
                     event_data=data,
                 )
             except Exception:
-                logger.warning(
-                    "アクティビティ永続化失敗: %s", event_type, exc_info=True
-                )
+                logger.warning("アクティビティ永続化失敗: %s", event_type, exc_info=True)
 
     async def emit_study_start(
         self, *, user_id: int, guild_id: int, topic: str, username: str

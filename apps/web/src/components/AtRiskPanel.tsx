@@ -29,7 +29,7 @@ export default function AtRiskPanel({ members, guildId }: AtRiskPanelProps) {
         user_id: member.user_id,
         message: `${member.username}さん、最近お見かけしません！最高${member.best_streak}日連続の記録をお持ちです。またStudyBotで学習を再開しませんか？`,
       });
-      setSent((prev) => new Set([...prev, member.user_id]));
+      setSent((prev) => new Set(Array.from(prev).concat(member.user_id)));
     } catch {
       // ignore
     } finally {

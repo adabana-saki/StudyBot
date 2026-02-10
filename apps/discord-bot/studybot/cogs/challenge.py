@@ -254,6 +254,7 @@ class ChallengeCog(commands.Cog):
     async def weekly_event_generator(self):
         """毎日チェック: 月曜なら週次イベントを自動生成"""
         from datetime import date as date_type
+
         if date_type.today().weekday() != 0:  # 月曜のみ
             return
 

@@ -23,12 +23,14 @@ def app(mock_pool):
     pool, _ = mock_pool
     with patch("api.database.pool", pool):
         from main import app
+
         yield app
 
 
 @pytest.fixture
 def _reset_rate_limiter(app):
     from api.middleware.rate_limiter import RateLimitMiddleware
+
     stack = app.middleware_stack
     while stack:
         if isinstance(stack, RateLimitMiddleware):
@@ -45,6 +47,7 @@ def client(app, _reset_rate_limiter):
 @pytest.fixture
 def test_token():
     from api.auth.jwt_handler import create_access_token
+
     return create_access_token(123456789, "TestUser")
 
 
@@ -58,12 +61,19 @@ class TestStocks:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "テスト",
-                "emoji": "📐", "sector": "理系",
-                "base_price": 100, "current_price": 110,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 50, "active": True,
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "テスト",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 110,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 50,
+                "active": True,
                 "listed_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             },
@@ -79,19 +89,28 @@ class TestStocks:
     def test_get_stock_detail(self, client, auth_headers, mock_pool):
         _, conn = mock_pool
         conn.fetchrow.return_value = {
-            "id": 1, "symbol": "CODE", "name": "プログラミング株",
-            "topic_keyword": "プログラミング", "description": "テスト",
-            "emoji": "💻", "sector": "技術",
-            "base_price": 100, "current_price": 150,
-            "previous_close": 130, "total_shares": 10000,
-            "circulating_shares": 200, "active": True,
+            "id": 1,
+            "symbol": "CODE",
+            "name": "プログラミング株",
+            "topic_keyword": "プログラミング",
+            "description": "テスト",
+            "emoji": "💻",
+            "sector": "技術",
+            "base_price": 100,
+            "current_price": 150,
+            "previous_close": 130,
+            "total_shares": 10000,
+            "circulating_shares": 200,
+            "active": True,
             "listed_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
         }
         conn.fetch.return_value = [
             {
-                "price": 140, "volume": 10,
-                "study_minutes": 100, "study_sessions": 5,
+                "price": 140,
+                "volume": 10,
+                "study_minutes": 100,
+                "study_sessions": 5,
                 "recorded_date": datetime.now(UTC).date(),
             },
         ]
@@ -115,12 +134,19 @@ class TestStocks:
         conn.fetchrow.side_effect = [
             # Stock lookup
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "",
-                "emoji": "📐", "sector": "理系",
-                "base_price": 100, "current_price": 100,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 0, "active": True,
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 100,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 0,
+                "active": True,
                 "listed_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             },
@@ -145,12 +171,19 @@ class TestStocks:
         _, conn = mock_pool
         conn.fetchrow.side_effect = [
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "",
-                "emoji": "📐", "sector": "理系",
-                "base_price": 100, "current_price": 100,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 0, "active": True,
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 100,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 0,
+                "active": True,
                 "listed_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             },
@@ -177,19 +210,31 @@ class TestStocks:
         conn.fetchrow.side_effect = [
             # Stock lookup
             {
-                "id": 1, "symbol": "MATH", "name": "数学株",
-                "topic_keyword": "数学", "description": "",
-                "emoji": "📐", "sector": "理系",
-                "base_price": 100, "current_price": 120,
-                "previous_close": 100, "total_shares": 10000,
-                "circulating_shares": 10, "active": True,
+                "id": 1,
+                "symbol": "MATH",
+                "name": "数学株",
+                "topic_keyword": "数学",
+                "description": "",
+                "emoji": "📐",
+                "sector": "理系",
+                "base_price": 100,
+                "current_price": 120,
+                "previous_close": 100,
+                "total_shares": 10000,
+                "circulating_shares": 10,
+                "active": True,
                 "listed_at": datetime.now(UTC),
                 "updated_at": datetime.now(UTC),
             },
             # Holding check
-            {"shares": 5, "avg_buy_price": 100, "total_invested": 500,
-             "user_id": 123456789, "stock_id": 1,
-             "updated_at": datetime.now(UTC)},
+            {
+                "shares": 5,
+                "avg_buy_price": 100,
+                "total_invested": 500,
+                "user_id": 123456789,
+                "stock_id": 1,
+                "updated_at": datetime.now(UTC),
+            },
             # Balance after sell
             {"balance": 1240},
         ]
@@ -210,10 +255,17 @@ class TestStocks:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "user_id": 123456789, "stock_id": 1,
-                "shares": 10, "avg_buy_price": 100, "total_invested": 1000,
-                "symbol": "MATH", "name": "数学株", "emoji": "📐",
-                "current_price": 120, "sector": "理系",
+                "id": 1,
+                "user_id": 123456789,
+                "stock_id": 1,
+                "shares": 10,
+                "avg_buy_price": 100,
+                "total_invested": 1000,
+                "symbol": "MATH",
+                "name": "数学株",
+                "emoji": "📐",
+                "current_price": 120,
+                "sector": "理系",
                 "updated_at": datetime.now(UTC),
             },
         ]
@@ -230,11 +282,17 @@ class TestStocks:
         conn.fetchval.return_value = 1
         conn.fetch.return_value = [
             {
-                "id": 1, "user_id": 123456789, "stock_id": 1,
-                "transaction_type": "buy", "shares": 5,
-                "price_per_share": 100, "total_amount": 500,
+                "id": 1,
+                "user_id": 123456789,
+                "stock_id": 1,
+                "transaction_type": "buy",
+                "shares": 5,
+                "price_per_share": 100,
+                "total_amount": 500,
                 "created_at": datetime.now(UTC),
-                "symbol": "MATH", "name": "数学株", "emoji": "📐",
+                "symbol": "MATH",
+                "name": "数学株",
+                "emoji": "📐",
             },
         ]
 
@@ -250,9 +308,13 @@ class TestSavings:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "user_id": 123456789, "account_type": "regular",
-                "balance": 500, "interest_rate": 0.001,
-                "lock_days": 0, "maturity_date": None,
+                "id": 1,
+                "user_id": 123456789,
+                "account_type": "regular",
+                "balance": 500,
+                "interest_rate": 0.001,
+                "lock_days": 0,
+                "maturity_date": None,
                 "total_interest_earned": 10,
                 "last_interest_at": datetime.now(UTC),
                 "created_at": datetime.now(UTC),
@@ -270,9 +332,13 @@ class TestSavings:
         conn.fetchrow.side_effect = [
             {"balance": 900},  # spend
             {
-                "id": 1, "user_id": 123456789, "account_type": "regular",
-                "balance": 100, "interest_rate": 0.001,
-                "lock_days": 0, "maturity_date": None,
+                "id": 1,
+                "user_id": 123456789,
+                "account_type": "regular",
+                "balance": 100,
+                "interest_rate": 0.001,
+                "lock_days": 0,
+                "maturity_date": None,
                 "total_interest_earned": 0,
                 "last_interest_at": datetime.now(UTC),
                 "created_at": datetime.now(UTC),
@@ -311,9 +377,13 @@ class TestSavings:
     def test_withdraw(self, client, auth_headers, mock_pool):
         _, conn = mock_pool
         conn.fetchrow.return_value = {
-            "id": 1, "user_id": 123456789, "account_type": "regular",
-            "balance": 500, "interest_rate": 0.001,
-            "lock_days": 0, "maturity_date": None,
+            "id": 1,
+            "user_id": 123456789,
+            "account_type": "regular",
+            "balance": 500,
+            "interest_rate": 0.001,
+            "lock_days": 0,
+            "maturity_date": None,
             "total_interest_earned": 10,
             "last_interest_at": datetime.now(UTC),
             "created_at": datetime.now(UTC),
@@ -334,8 +404,10 @@ class TestSavings:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "account_type": "regular",
-                "amount": 5, "balance_after": 505,
+                "id": 1,
+                "account_type": "regular",
+                "amount": 5,
+                "balance_after": 505,
                 "calculated_at": datetime.now(UTC),
             },
         ]
@@ -353,12 +425,17 @@ class TestFleaMarket:
         conn.fetchval.return_value = 1
         conn.fetch.return_value = [
             {
-                "id": 1, "seller_id": 999, "item_id": 10,
-                "quantity": 2, "price_per_unit": 50,
+                "id": 1,
+                "seller_id": 999,
+                "item_id": 10,
+                "quantity": 2,
+                "price_per_unit": 50,
                 "status": "active",
                 "expires_at": datetime.now(UTC) + timedelta(days=3),
                 "created_at": datetime.now(UTC),
-                "name": "テスト", "emoji": "🎁", "rarity": "common",
+                "name": "テスト",
+                "emoji": "🎁",
+                "rarity": "common",
                 "seller_name": "Seller",
             },
         ]
@@ -374,8 +451,11 @@ class TestFleaMarket:
         conn.fetchrow.side_effect = [
             {"quantity": 5},  # inv check
             {
-                "id": 1, "seller_id": 123456789, "item_id": 10,
-                "quantity": 2, "price_per_unit": 50,
+                "id": 1,
+                "seller_id": 123456789,
+                "item_id": 10,
+                "quantity": 2,
+                "price_per_unit": 50,
                 "status": "active",
                 "expires_at": datetime.now(UTC) + timedelta(days=7),
                 "created_at": datetime.now(UTC),
@@ -410,8 +490,11 @@ class TestFleaMarket:
         conn.fetchrow.side_effect = [
             # FOR UPDATE listing
             {
-                "id": 1, "seller_id": 999, "item_id": 10,
-                "quantity": 1, "price_per_unit": 100,
+                "id": 1,
+                "seller_id": 999,
+                "item_id": 10,
+                "quantity": 1,
+                "price_per_unit": 100,
                 "status": "active",
                 "expires_at": datetime.now(UTC) + timedelta(days=3),
                 "created_at": datetime.now(UTC),
@@ -435,8 +518,11 @@ class TestFleaMarket:
     def test_buy_own_listing(self, client, auth_headers, mock_pool):
         _, conn = mock_pool
         conn.fetchrow.return_value = {
-            "id": 1, "seller_id": 123456789, "item_id": 10,
-            "quantity": 1, "price_per_unit": 100,
+            "id": 1,
+            "seller_id": 123456789,
+            "item_id": 10,
+            "quantity": 1,
+            "price_per_unit": 100,
             "status": "active",
             "expires_at": datetime.now(UTC) + timedelta(days=3),
             "created_at": datetime.now(UTC),
@@ -451,8 +537,11 @@ class TestFleaMarket:
     def test_cancel_listing(self, client, auth_headers, mock_pool):
         _, conn = mock_pool
         conn.fetchrow.return_value = {
-            "id": 1, "seller_id": 123456789, "item_id": 10,
-            "quantity": 1, "price_per_unit": 100,
+            "id": 1,
+            "seller_id": 123456789,
+            "item_id": 10,
+            "quantity": 1,
+            "price_per_unit": 100,
             "status": "active",
             "expires_at": datetime.now(UTC) + timedelta(days=3),
             "created_at": datetime.now(UTC),
@@ -471,12 +560,17 @@ class TestFleaMarket:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "seller_id": 123456789, "item_id": 10,
-                "quantity": 1, "price_per_unit": 100,
+                "id": 1,
+                "seller_id": 123456789,
+                "item_id": 10,
+                "quantity": 1,
+                "price_per_unit": 100,
                 "status": "active",
                 "expires_at": datetime.now(UTC) + timedelta(days=3),
                 "created_at": datetime.now(UTC),
-                "name": "テスト", "emoji": "🎁", "rarity": "common",
+                "name": "テスト",
+                "emoji": "🎁",
+                "rarity": "common",
             },
         ]
 
@@ -489,9 +583,12 @@ class TestFleaMarket:
         _, conn = mock_pool
         conn.fetch.return_value = [
             {
-                "id": 1, "item_id": 10,
-                "avg_price": 50, "min_price": 40,
-                "max_price": 60, "volume": 5,
+                "id": 1,
+                "item_id": 10,
+                "avg_price": 50,
+                "min_price": 40,
+                "max_price": 60,
+                "volume": 5,
                 "recorded_date": datetime.now(UTC).date(),
             },
         ]

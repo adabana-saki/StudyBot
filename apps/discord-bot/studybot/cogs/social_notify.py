@@ -5,7 +5,7 @@ import json
 import logging
 from datetime import UTC, datetime
 
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 from studybot.config.constants import COLORS
 from studybot.utils.embed_helper import info_embed
@@ -82,15 +82,11 @@ class SocialNotifyCog(commands.Cog):
 
         # Clean old cache entries (older than 2 hours)
         cutoff = now - 7200
-        self._notified_cache = {
-            k: v for k, v in self._notified_cache.items() if v > cutoff
-        }
+        self._notified_cache = {k: v for k, v in self._notified_cache.items() if v > cutoff}
 
         # Send DM
         try:
-            user = self.bot.get_user(target_user_id) or await self.bot.fetch_user(
-                target_user_id
-            )
+            user = self.bot.get_user(target_user_id) or await self.bot.fetch_user(target_user_id)
             if not user:
                 return
 
@@ -106,7 +102,8 @@ class SocialNotifyCog(commands.Cog):
                 body_preview = event_data.get("body", "")[:100]
                 embed = info_embed(
                     "💬 コメント通知",
-                    f"**{actor_username}** があなたのアクティビティにコメントしました：\n> {body_preview}",
+                    f"**{actor_username}** があなたのアクティビティに"
+                    f"コメントしました：\n> {body_preview}",
                 )
 
             embed.color = COLORS.get("primary", 0x5865F2)

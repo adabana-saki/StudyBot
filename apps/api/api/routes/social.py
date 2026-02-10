@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from api.database import get_pool
 from api.dependencies import get_current_user
-from api.models.schemas import PaginatedResponse
 
 logger = logging.getLogger(__name__)
 
@@ -89,17 +88,19 @@ async def get_timeline(
         if isinstance(reaction_counts, str):
             reaction_counts = json.loads(reaction_counts)
 
-        items.append({
-            "id": r["id"],
-            "user_id": r["user_id"],
-            "username": r["username"],
-            "event_type": r["event_type"],
-            "event_data": event_data,
-            "created_at": r["created_at"].isoformat(),
-            "reaction_counts": reaction_counts or {},
-            "my_reactions": my_reactions_map.get(r["id"], []),
-            "comment_count": r["comment_count"],
-        })
+        items.append(
+            {
+                "id": r["id"],
+                "user_id": r["user_id"],
+                "username": r["username"],
+                "event_type": r["event_type"],
+                "event_data": event_data,
+                "created_at": r["created_at"].isoformat(),
+                "reaction_counts": reaction_counts or {},
+                "my_reactions": my_reactions_map.get(r["id"], []),
+                "comment_count": r["comment_count"],
+            }
+        )
 
     return {"items": items, "total": total, "offset": offset, "limit": limit}
 
@@ -144,21 +145,25 @@ async def add_reaction(
     # Publish event for DM notification
     try:
         from api.services.redis_client import get_redis
+
         redis_conn = get_redis()
         if redis_conn:
             import json as json_mod
+
             await redis_conn.publish(
                 "studybot:events",
-                json_mod.dumps({
-                    "type": "social_reaction",
-                    "data": {
-                        "event_id": event_id,
-                        "target_user_id": event["user_id"],
-                        "actor_user_id": user_id,
-                        "actor_username": current_user["username"],
-                        "reaction_type": reaction_type,
-                    },
-                }),
+                json_mod.dumps(
+                    {
+                        "type": "social_reaction",
+                        "data": {
+                            "event_id": event_id,
+                            "target_user_id": event["user_id"],
+                            "actor_user_id": user_id,
+                            "actor_username": current_user["username"],
+                            "reaction_type": reaction_type,
+                        },
+                    }
+                ),
             )
     except Exception:
         logger.debug("リアクションイベント発行失敗", exc_info=True)
@@ -175,7 +180,7 @@ async def remove_reaction(
     """リアクション削除"""
     pool = get_pool()
     async with pool.acquire() as conn:
-        result = await conn.execute(
+        await conn.execute(
             """
             DELETE FROM activity_reactions
             WHERE event_id = $1 AND user_id = $2 AND reaction_type = $3
@@ -256,21 +261,25 @@ async def add_comment(
     # Publish event for DM notification
     try:
         from api.services.redis_client import get_redis
+
         redis_conn = get_redis()
         if redis_conn:
             import json as json_mod
+
             await redis_conn.publish(
                 "studybot:events",
-                json_mod.dumps({
-                    "type": "social_comment",
-                    "data": {
-                        "event_id": event_id,
-                        "target_user_id": event["user_id"],
-                        "actor_user_id": user_id,
-                        "actor_username": current_user["username"],
-                        "body": comment_body,
-                    },
-                }),
+                json_mod.dumps(
+                    {
+                        "type": "social_comment",
+                        "data": {
+                            "event_id": event_id,
+                            "target_user_id": event["user_id"],
+                            "actor_user_id": user_id,
+                            "actor_username": current_user["username"],
+                            "body": comment_body,
+                        },
+                    }
+                ),
             )
     except Exception:
         logger.debug("コメントイベント発行失敗", exc_info=True)

@@ -30,8 +30,13 @@ class RoomRepository(BaseRepository):
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 RETURNING *
                 """,
-                guild_id, name, theme, vc_channel_id,
-                collective_goal_minutes, max_occupants, created_by,
+                guild_id,
+                name,
+                theme,
+                vc_channel_id,
+                collective_goal_minutes,
+                max_occupants,
+                created_by,
             )
             return dict(row) if row else {}
 
@@ -65,9 +70,7 @@ class RoomRepository(BaseRepository):
             )
             return [dict(r) for r in rows]
 
-    async def join_room(
-        self, room_id: int, user_id: int, platform: str, topic: str = ""
-    ) -> bool:
+    async def join_room(self, room_id: int, user_id: int, platform: str, topic: str = "") -> bool:
         async with self.db_pool.acquire() as conn:
             try:
                 await conn.execute(
@@ -77,7 +80,10 @@ class RoomRepository(BaseRepository):
                     ON CONFLICT (room_id, user_id) DO UPDATE
                         SET platform = $3, topic = $4, joined_at = NOW()
                     """,
-                    room_id, user_id, platform, topic,
+                    room_id,
+                    user_id,
+                    platform,
+                    topic,
                 )
                 return True
             except Exception:
@@ -88,14 +94,16 @@ class RoomRepository(BaseRepository):
         async with self.db_pool.acquire() as conn:
             member = await conn.fetchrow(
                 "SELECT * FROM room_members WHERE room_id = $1 AND user_id = $2",
-                room_id, user_id,
+                room_id,
+                user_id,
             )
             if not member:
                 return None
 
             await conn.execute(
                 "DELETE FROM room_members WHERE room_id = $1 AND user_id = $2",
-                room_id, user_id,
+                room_id,
+                user_id,
             )
             return dict(member)
 
@@ -114,9 +122,7 @@ class RoomRepository(BaseRepository):
             )
             return [dict(r) for r in rows]
 
-    async def update_collective_progress(
-        self, room_id: int, delta: int
-    ) -> dict | None:
+    async def update_collective_progress(self, room_id: int, delta: int) -> dict | None:
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
@@ -126,7 +132,8 @@ class RoomRepository(BaseRepository):
                 WHERE id = $1
                 RETURNING collective_goal_minutes, collective_progress_minutes
                 """,
-                room_id, delta,
+                room_id,
+                delta,
             )
             return dict(row) if row else None
 
@@ -156,7 +163,11 @@ class RoomRepository(BaseRepository):
                     (room_id, user_id, platform, joined_at, duration_minutes)
                 VALUES ($1, $2, $3, $4, $5)
                 """,
-                room_id, user_id, platform, joined_at, duration_minutes,
+                room_id,
+                user_id,
+                platform,
+                joined_at,
+                duration_minutes,
             )
 
     async def get_user_room(self, user_id: int) -> dict | None:

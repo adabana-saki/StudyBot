@@ -89,9 +89,7 @@ class TeamManager:
             "max_members": team["max_members"],
         }
 
-    async def join_team(
-        self, team_id: int, user_id: int, username: str
-    ) -> dict:
+    async def join_team(self, team_id: int, user_id: int, username: str) -> dict:
         await self.repository.ensure_user(user_id, username)
 
         team = await self.repository.get_team(team_id)
@@ -170,6 +168,7 @@ class TeamManager:
 
     def _today_jst(self) -> date:
         from datetime import datetime
+
         return datetime.now(JST).date()
 
     async def get_team_quests(self, team_id: int) -> list[dict]:
@@ -182,9 +181,7 @@ class TeamManager:
 
     async def _generate_team_quests(self, team_id: int, quest_date: date) -> list[dict]:
         """チームクエストを生成"""
-        templates = random.sample(
-            TEAM_QUEST_TEMPLATES, min(2, len(TEAM_QUEST_TEMPLATES))
-        )
+        templates = random.sample(TEAM_QUEST_TEMPLATES, min(2, len(TEAM_QUEST_TEMPLATES)))
         quests = []
         for tmpl in templates:
             target = random.choice(tmpl["targets"])
@@ -198,18 +195,20 @@ class TeamManager:
                 reward_coins=reward_coins,
                 quest_date=quest_date,
             )
-            quests.append({
-                "id": quest_id,
-                "team_id": team_id,
-                "quest_type": tmpl["quest_type"],
-                "target": target,
-                "progress": 0,
-                "reward_xp": reward_xp,
-                "reward_coins": reward_coins,
-                "completed": False,
-                "claimed": False,
-                "quest_date": quest_date,
-            })
+            quests.append(
+                {
+                    "id": quest_id,
+                    "team_id": team_id,
+                    "quest_type": tmpl["quest_type"],
+                    "target": target,
+                    "progress": 0,
+                    "reward_xp": reward_xp,
+                    "reward_coins": reward_coins,
+                    "completed": False,
+                    "claimed": False,
+                    "quest_date": quest_date,
+                }
+            )
         return quests
 
     async def update_team_quest_progress(
@@ -220,9 +219,7 @@ class TeamManager:
         team_ids = await self.repository.get_user_team_ids(user_id)
         for team_id in team_ids:
             try:
-                await self.repository.update_team_quest_progress(
-                    team_id, quest_type, today, delta
-                )
+                await self.repository.update_team_quest_progress(team_id, quest_type, today, delta)
             except Exception:
                 logger.debug("チームクエスト進捗更新失敗 team=%d", team_id, exc_info=True)
 

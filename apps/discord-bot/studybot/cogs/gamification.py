@@ -157,7 +157,10 @@ class GamificationCog(commands.Cog):
 
         if not details:
             await interaction.followup.send(
-                embed=info_embed("🔥 ストリーク", "ストリーク情報が見つかりません。学習を始めましょう！"),
+                embed=info_embed(
+                    "🔥 ストリーク",
+                    "ストリーク情報が見つかりません。学習を始めましょう！",
+                ),
                 ephemeral=True,
             )
             return
@@ -226,7 +229,10 @@ class GamificationCog(commands.Cog):
 
         if not profile:
             await interaction.followup.send(
-                embed=info_embed("プロフィール", "プロフィールが見つかりません。学習を始めましょう！"),
+                embed=info_embed(
+                    "プロフィール",
+                    "プロフィールが見つかりません。学習を始めましょう！",
+                ),
                 ephemeral=True,
             )
             return
@@ -391,6 +397,7 @@ class GamificationCog(commands.Cog):
 
         # ティアラベルを取得
         from studybot.managers.gamification_manager import SEASON_TIERS
+
         tier_label = "未開始"
         for t in SEASON_TIERS:
             if t["tier"] == current_tier:
@@ -416,12 +423,16 @@ class GamificationCog(commands.Cog):
 
         if next_tier:
             xp_needed = next_tier["xp_required"] - total_xp
-            ratio = min(1.0, total_xp / next_tier["xp_required"]) if next_tier["xp_required"] > 0 else 0
+            xp_req = next_tier["xp_required"]
+            ratio = min(1.0, total_xp / xp_req) if xp_req > 0 else 0
             filled = int(15 * ratio)
             bar = "▓" * filled + "░" * (15 - filled)
             embed.add_field(
                 name=f"次のティア: {next_tier['label']}",
-                value=f"[{bar}] あと **{max(0, xp_needed):,}** XP\n報酬: {next_tier['reward_coins']} 🪙",
+                value=(
+                    f"[{bar}] あと **{max(0, xp_needed):,}** XP\n"
+                    f"報酬: {next_tier['reward_coins']} 🪙"
+                ),
                 inline=False,
             )
         else:
@@ -625,7 +636,12 @@ class GamificationCog(commands.Cog):
         # バトル貢献
         await self._update_battle_contribution(user_id, "tasks", 1)
 
-    async def award_study_log_xp(self, user_id: int, channel: discord.abc.Messageable, duration_minutes: int = 0) -> None:
+    async def award_study_log_xp(
+        self,
+        user_id: int,
+        channel: discord.abc.Messageable,
+        duration_minutes: int = 0,
+    ) -> None:
         """学習ログ記録時のXP付与"""
         amount = XP_REWARDS["study_log"]
         result = await self.manager.add_xp(user_id, amount, "学習ログ記録")
@@ -676,37 +692,27 @@ class GamificationCog(commands.Cog):
 
     # --- チームクエスト / バディ連携 ---
 
-    async def _update_team_quest(
-        self, user_id: int, quest_type: str, delta: int
-    ) -> None:
+    async def _update_team_quest(self, user_id: int, quest_type: str, delta: int) -> None:
         """チームクエスト進捗を更新"""
         team_cog = self.bot.get_cog("TeamCog")
         if not team_cog:
             return
         try:
-            await team_cog.manager.update_team_quest_progress(
-                user_id, quest_type, delta
-            )
+            await team_cog.manager.update_team_quest_progress(user_id, quest_type, delta)
         except Exception:
             logger.debug("チームクエスト更新失敗 (user=%d)", user_id, exc_info=True)
 
-    async def _update_battle_contribution(
-        self, user_id: int, goal_type: str, amount: int
-    ) -> None:
+    async def _update_battle_contribution(self, user_id: int, goal_type: str, amount: int) -> None:
         """バトル貢献を記録"""
         battle_cog = self.bot.get_cog("BattleCog")
         if not battle_cog:
             return
         try:
-            await battle_cog.manager.add_contribution(
-                user_id, goal_type, amount, "discord"
-            )
+            await battle_cog.manager.add_contribution(user_id, goal_type, amount, "discord")
         except Exception:
             logger.debug("バトル貢献更新失敗 (user=%d)", user_id, exc_info=True)
 
-    async def _check_buddy_bonus(
-        self, user_id: int, channel: discord.abc.Messageable
-    ) -> None:
+    async def _check_buddy_bonus(self, user_id: int, channel: discord.abc.Messageable) -> None:
         """バディが同時学習中ならボーナスXPを付与"""
         buddy_cog = self.bot.get_cog("BuddyCog")
         if not buddy_cog:
@@ -715,7 +721,7 @@ class GamificationCog(commands.Cog):
             concurrent = await buddy_cog.manager.check_concurrent_session(user_id)
             if concurrent:
                 bonus_xp = 10
-                result = await self.manager.add_xp(user_id, bonus_xp, "バディ同時学習ボーナス")
+                await self.manager.add_xp(user_id, bonus_xp, "バディ同時学習ボーナス")
                 embed = xp_embed(
                     "🤝 バディボーナス！",
                     f"バディと同時に学習中！ +{bonus_xp} XP",
@@ -768,14 +774,12 @@ class GamificationCog(commands.Cog):
 
         # シーズンパスXP加算
         try:
-            season_result = await self.manager.add_season_xp(
-                user_id, result["xp_gained"]
-            )
+            season_result = await self.manager.add_season_xp(user_id, result["xp_gained"])
             if season_result and season_result["tier_ups"]:
                 for tier_up in season_result["tier_ups"]:
                     await channel.send(
                         embed=xp_embed(
-                            f"🏅 シーズンティアアップ！",
+                            "🏅 シーズンティアアップ！",
                             f"**{tier_up['label']}** に到達！ +{tier_up['reward_coins']} 🪙",
                         )
                     )
@@ -784,8 +788,10 @@ class GamificationCog(commands.Cog):
                     if shop_cog:
                         try:
                             await shop_cog.award_coins(
-                                user_id, "", tier_up["reward_coins"],
-                                f"シーズン報酬: {tier_up['label']}"
+                                user_id,
+                                "",
+                                tier_up["reward_coins"],
+                                f"シーズン報酬: {tier_up['label']}",
                             )
                         except Exception:
                             pass
@@ -928,9 +934,7 @@ class GamificationCog(commands.Cog):
             except discord.Forbidden:
                 logger.debug("離脱検知DM送信不可: user=%d", user_id)
             except Exception:
-                logger.warning(
-                    "離脱検知DM送信失敗: user=%d", user_id, exc_info=True
-                )
+                logger.warning("離脱検知DM送信失敗: user=%d", user_id, exc_info=True)
 
     @churn_detection_dm.before_loop
     async def before_churn_detection_dm(self):

@@ -34,9 +34,7 @@ class MarketManager:
         stock["history"] = await self.repository.get_price_history(stock["id"], 30)
         return stock
 
-    async def buy_stock(
-        self, user_id: int, symbol: str, shares: int
-    ) -> dict:
+    async def buy_stock(self, user_id: int, symbol: str, shares: int) -> dict:
         if shares <= 0:
             return {"error": "購入株数は1以上を指定してください"}
         if shares > STOCK_CONFIG["max_shares_per_trade"]:
@@ -63,9 +61,7 @@ class MarketManager:
             "balance": result["balance"],
         }
 
-    async def sell_stock(
-        self, user_id: int, symbol: str, shares: int
-    ) -> dict:
+    async def sell_stock(self, user_id: int, symbol: str, shares: int) -> dict:
         if shares <= 0:
             return {"error": "売却株数は1以上を指定してください"}
         if shares > STOCK_CONFIG["max_shares_per_trade"]:
@@ -101,7 +97,8 @@ class MarketManager:
             h["profit"] = market_value - h["total_invested"]
             h["profit_pct"] = (
                 round((h["profit"] / h["total_invested"]) * 100, 1)
-                if h["total_invested"] > 0 else 0.0
+                if h["total_invested"] > 0
+                else 0.0
             )
             total_value += market_value
             total_invested += h["total_invested"]
@@ -113,21 +110,18 @@ class MarketManager:
             "total_profit": total_value - total_invested,
             "total_profit_pct": (
                 round(((total_value - total_invested) / total_invested) * 100, 1)
-                if total_invested > 0 else 0.0
+                if total_invested > 0
+                else 0.0
             ),
         }
 
-    async def get_stock_history(
-        self, symbol: str, days: int = 30
-    ) -> list[dict]:
+    async def get_stock_history(self, symbol: str, days: int = 30) -> list[dict]:
         stock = await self.repository.get_stock_by_symbol(symbol)
         if not stock:
             return []
         return await self.repository.get_price_history(stock["id"], days)
 
-    async def get_transactions(
-        self, user_id: int, limit: int = 20, offset: int = 0
-    ) -> dict:
+    async def get_transactions(self, user_id: int, limit: int = 20, offset: int = 0) -> dict:
         items = await self.repository.get_stock_transactions(user_id, limit, offset)
         total = await self.repository.get_stock_transaction_count(user_id)
         return {"items": items, "total": total, "offset": offset, "limit": limit}
@@ -143,11 +137,13 @@ class MarketManager:
                 try:
                     new_price = await self._calculate_new_price(stock, now)
                     await self.repository.update_stock_price(stock["id"], new_price)
-                    results.append({
-                        "symbol": stock["symbol"],
-                        "old_price": stock["current_price"],
-                        "new_price": new_price,
-                    })
+                    results.append(
+                        {
+                            "symbol": stock["symbol"],
+                            "old_price": stock["current_price"],
+                            "new_price": new_price,
+                        }
+                    )
                 except Exception as e:
                     logger.error(f"株価更新エラー {stock['symbol']}: {e}")
 
@@ -182,7 +178,8 @@ class MarketManager:
 
                 # 前日終値を更新
                 await self.repository.update_stock_price(
-                    stock["id"], stock["current_price"],
+                    stock["id"],
+                    stock["current_price"],
                     previous_close=stock["current_price"],
                 )
             except Exception as e:
@@ -241,9 +238,7 @@ class MarketManager:
             "total_interest": total_interest,
         }
 
-    async def deposit(
-        self, user_id: int, amount: int, account_type: str = "regular"
-    ) -> dict:
+    async def deposit(self, user_id: int, amount: int, account_type: str = "regular") -> dict:
         if amount < SAVINGS_CONFIG["min_deposit"]:
             return {"error": f"最低預金額は {SAVINGS_CONFIG['min_deposit']} 🪙 です"}
 
@@ -257,9 +252,7 @@ class MarketManager:
             rate = SAVINGS_CONFIG["fixed_daily_rate"]
             lock_days = SAVINGS_CONFIG["fixed_lock_days"]
 
-        result = await self.repository.deposit(
-            user_id, account_type, amount, rate, lock_days
-        )
+        result = await self.repository.deposit(user_id, account_type, amount, rate, lock_days)
         if not result:
             return {"error": "コインが不足しています"}
 
@@ -274,9 +267,7 @@ class MarketManager:
             "maturity_date": result.get("maturity_date"),
         }
 
-    async def withdraw(
-        self, user_id: int, amount: int, account_type: str = "regular"
-    ) -> dict:
+    async def withdraw(self, user_id: int, amount: int, account_type: str = "regular") -> dict:
         if amount <= 0:
             return {"error": "引き出し額は1以上を指定してください"}
 
@@ -289,7 +280,12 @@ class MarketManager:
             if account and account["maturity_date"]:
                 if datetime.now(UTC) < account["maturity_date"]:
                     remaining = (account["maturity_date"] - datetime.now(UTC)).days
-                    return {"error": f"定期預金の満期まであと {remaining} 日です。満期前の引き出しはできません。"}
+                    return {
+                        "error": (
+                            f"定期預金の満期まであと {remaining} 日です。"
+                            "満期前の引き出しはできません。"
+                        )
+                    }
 
         result = await self.repository.withdraw(user_id, account_type, amount)
         if not result:
@@ -306,30 +302,32 @@ class MarketManager:
     async def process_daily_interest(self) -> list[dict]:
         return await self.repository.calculate_and_apply_interest()
 
-    async def get_interest_history(
-        self, user_id: int, limit: int = 20
-    ) -> list[dict]:
+    async def get_interest_history(self, user_id: int, limit: int = 20) -> list[dict]:
         return await self.repository.get_interest_history(user_id, limit)
 
     # ===== フリーマーケット =====
 
-    async def create_listing(
-        self, user_id: int, item_id: int, quantity: int, price: int
-    ) -> dict:
+    async def create_listing(self, user_id: int, item_id: int, quantity: int, price: int) -> dict:
         if quantity <= 0:
             return {"error": "出品数量は1以上を指定してください"}
         if price < MARKET_CONFIG["min_price"] or price > MARKET_CONFIG["max_price"]:
-            return {"error": f"価格は {MARKET_CONFIG['min_price']}〜{MARKET_CONFIG['max_price']:,} 🪙 の範囲で指定してください"}
+            return {
+                "error": (
+                    f"価格は {MARKET_CONFIG['min_price']}〜"
+                    f"{MARKET_CONFIG['max_price']:,} 🪙 の範囲で"
+                    "指定してください"
+                )
+            }
 
         # 出品数上限チェック
         user_listings = await self.repository.get_user_listings(user_id, status="active")
         if len(user_listings) >= MARKET_CONFIG["max_listings_per_user"]:
-            return {"error": f"出品数上限 ({MARKET_CONFIG['max_listings_per_user']}件) に達しています"}
+            return {
+                "error": f"出品数上限 ({MARKET_CONFIG['max_listings_per_user']}件) に達しています"
+            }
 
         expires_at = datetime.now(UTC) + timedelta(days=MARKET_CONFIG["listing_duration_days"])
-        result = await self.repository.create_listing(
-            user_id, item_id, quantity, price, expires_at
-        )
+        result = await self.repository.create_listing(user_id, item_id, quantity, price, expires_at)
         if not result:
             return {"error": "アイテムが不足しているか、出品に失敗しました"}
 
@@ -342,8 +340,7 @@ class MarketManager:
         }
 
     async def get_listings(
-        self, item_id: int | None = None,
-        limit: int = 20, offset: int = 0
+        self, item_id: int | None = None, limit: int = 20, offset: int = 0
     ) -> dict:
         items = await self.repository.get_active_listings(item_id, limit, offset)
         total = await self.repository.get_active_listing_count(item_id)
@@ -361,11 +358,15 @@ class MarketManager:
         total = listing["price_per_unit"] * listing["quantity"]
         fee = max(1, math.floor(total * MARKET_CONFIG["fee_rate"]))
 
-        result = await self.repository.buy_listing(
-            buyer_id, listing_id, MARKET_CONFIG["fee_rate"]
-        )
+        result = await self.repository.buy_listing(buyer_id, listing_id, MARKET_CONFIG["fee_rate"])
         if not result:
-            return {"error": f"コインが不足しています（必要: {total + fee:,} 🪙 = 価格 {total:,} + 手数料 {fee:,}）"}
+            return {
+                "error": (
+                    f"コインが不足しています"
+                    f"（必要: {total + fee:,} 🪙 = "
+                    f"価格 {total:,} + 手数料 {fee:,}）"
+                )
+            }
 
         return {
             "listing_id": listing_id,
@@ -386,9 +387,7 @@ class MarketManager:
     async def get_my_listings(self, user_id: int) -> list[dict]:
         return await self.repository.get_user_listings(user_id)
 
-    async def get_item_price_history(
-        self, item_id: int, days: int = 30
-    ) -> list[dict]:
+    async def get_item_price_history(self, item_id: int, days: int = 30) -> list[dict]:
         return await self.repository.get_item_price_history(item_id, days)
 
     async def process_expired_listings(self) -> int:

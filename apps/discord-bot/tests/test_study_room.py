@@ -1,7 +1,6 @@
 """スタディルームのテスト"""
 
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from datetime import UTC, datetime
 
 import pytest
 
@@ -28,14 +27,20 @@ async def test_create_room(room_manager):
     """ルーム作成テスト"""
     manager, conn = room_manager
     conn.fetchrow.return_value = {
-        "id": 1, "guild_id": 100, "name": "数学部屋",
-        "theme": "math", "vc_channel_id": None,
+        "id": 1,
+        "guild_id": 100,
+        "name": "数学部屋",
+        "theme": "math",
+        "vc_channel_id": None,
         "collective_goal_minutes": 120,
         "collective_progress_minutes": 0,
         "max_occupants": 20,
-        "description": "", "ambient_sound": "none",
-        "is_permanent": False, "state": "active",
-        "created_by": 123, "created_at": None,
+        "description": "",
+        "ambient_sound": "none",
+        "is_permanent": False,
+        "state": "active",
+        "created_by": 123,
+        "created_at": None,
     }
 
     result = await manager.create_room(100, "数学部屋", "math", goal_minutes=120, created_by=123)
@@ -59,8 +64,11 @@ async def test_join_room(room_manager):
     conn.fetchrow.side_effect = [
         # get_room
         {
-            "id": 1, "guild_id": 100, "name": "部屋",
-            "member_count": 5, "max_occupants": 20,
+            "id": 1,
+            "guild_id": 100,
+            "name": "部屋",
+            "member_count": 5,
+            "max_occupants": 20,
         },
         # get_user_room (no existing room)
         None,
@@ -77,8 +85,11 @@ async def test_join_room_full(room_manager):
     manager, conn = room_manager
 
     conn.fetchrow.return_value = {
-        "id": 1, "guild_id": 100, "name": "部屋",
-        "member_count": 20, "max_occupants": 20,
+        "id": 1,
+        "guild_id": 100,
+        "name": "部屋",
+        "member_count": 20,
+        "max_occupants": 20,
     }
 
     result = await manager.join_room(1, 123, "discord")
@@ -90,13 +101,15 @@ async def test_join_room_full(room_manager):
 async def test_leave_room(room_manager):
     """ルーム退出テスト"""
     manager, conn = room_manager
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     conn.fetchrow.side_effect = [
         # leave_room -> member
         {
-            "room_id": 1, "user_id": 123,
-            "platform": "discord", "topic": "数学",
+            "room_id": 1,
+            "user_id": 123,
+            "platform": "discord",
+            "topic": "数学",
             "joined_at": now,
         },
         # update_collective_progress

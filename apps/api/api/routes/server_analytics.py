@@ -190,66 +190,82 @@ async def get_community_health(
     pool = get_pool()
     async with pool.acquire() as conn:
         # DAU/MAU ratio
-        dau = await conn.fetchval(
-            """
+        dau = (
+            await conn.fetchval(
+                """
             SELECT COUNT(DISTINCT user_id)
             FROM study_logs
             WHERE guild_id = $1
               AND logged_at >= CURRENT_DATE
             """,
-            guild_id,
-        ) or 0
+                guild_id,
+            )
+            or 0
+        )
 
-        mau = await conn.fetchval(
-            """
+        mau = (
+            await conn.fetchval(
+                """
             SELECT COUNT(DISTINCT user_id)
             FROM study_logs
             WHERE guild_id = $1
               AND logged_at >= NOW() - INTERVAL '30 days'
             """,
-            guild_id,
-        ) or 1
+                guild_id,
+            )
+            or 1
+        )
 
         dau_mau = round(dau / max(mau, 1), 3)
 
         # Average streak
-        avg_streak = await conn.fetchval(
-            """
+        avg_streak = (
+            await conn.fetchval(
+                """
             SELECT COALESCE(AVG(streak_days), 0)
             FROM user_levels ul
             JOIN study_logs sl ON sl.user_id = ul.user_id AND sl.guild_id = $1
             GROUP BY sl.guild_id
             """,
-            guild_id,
-        ) or 0.0
+                guild_id,
+            )
+            or 0.0
+        )
 
         # Retention: users active this week who were active last week
-        active_this_week = await conn.fetchval(
-            """
+        active_this_week = (
+            await conn.fetchval(
+                """
             SELECT COUNT(DISTINCT user_id)
             FROM study_logs
             WHERE guild_id = $1
               AND logged_at >= NOW() - INTERVAL '7 days'
             """,
-            guild_id,
-        ) or 0
+                guild_id,
+            )
+            or 0
+        )
 
-        active_last_week = await conn.fetchval(
-            """
+        active_last_week = (
+            await conn.fetchval(
+                """
             SELECT COUNT(DISTINCT user_id)
             FROM study_logs
             WHERE guild_id = $1
               AND logged_at >= NOW() - INTERVAL '14 days'
               AND logged_at < NOW() - INTERVAL '7 days'
             """,
-            guild_id,
-        ) or 1
+                guild_id,
+            )
+            or 1
+        )
 
         retention = round(active_this_week / max(active_last_week, 1), 3)
 
         # Churn: users active last week but not this week
-        churned = await conn.fetchval(
-            """
+        churned = (
+            await conn.fetchval(
+                """
             SELECT COUNT(DISTINCT user_id)
             FROM study_logs
             WHERE guild_id = $1
@@ -261,18 +277,26 @@ async def get_community_health(
                     AND logged_at >= NOW() - INTERVAL '7 days'
               )
             """,
-            guild_id,
-        ) or 0
+                guild_id,
+            )
+            or 0
+        )
 
         churn_rate = round(churned / max(active_last_week, 1), 3)
 
     # Composite score: weighted average
-    score = int(min(100, max(0,
-        dau_mau * 100 * 0.25 +
-        retention * 100 * 0.3 +
-        min(float(avg_streak) / 7.0, 1.0) * 100 * 0.25 +
-        (1 - churn_rate) * 100 * 0.2
-    )))
+    score = int(
+        min(
+            100,
+            max(
+                0,
+                dau_mau * 100 * 0.25
+                + retention * 100 * 0.3
+                + min(float(avg_streak) / 7.0, 1.0) * 100 * 0.25
+                + (1 - churn_rate) * 100 * 0.2,
+            ),
+        )
+    )
 
     return {
         "score": score,
@@ -325,14 +349,17 @@ async def create_action(
         # Immediate execution via Redis
         try:
             from api.services.redis_client import get_redis
+
             redis_conn = get_redis()
             if redis_conn:
                 await redis_conn.publish(
                     "studybot:admin_actions",
-                    json.dumps({
-                        "action_type": action_type,
-                        "action_data": action_data,
-                    }),
+                    json.dumps(
+                        {
+                            "action_type": action_type,
+                            "action_data": action_data,
+                        }
+                    ),
                 )
                 return {"status": "dispatched"}
             raise HTTPException(status_code=503, detail="Redis unavailable")
@@ -369,7 +396,8 @@ async def get_actions(
             "id": r["id"],
             "action_type": r["action_type"],
             "action_data": json.loads(r["action_data"])
-                if isinstance(r["action_data"], str) else r["action_data"],
+            if isinstance(r["action_data"], str)
+            else r["action_data"],
             "scheduled_for": r["scheduled_for"].isoformat() if r["scheduled_for"] else None,
             "executed": r["executed"],
             "result": r["result"],

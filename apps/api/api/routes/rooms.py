@@ -123,7 +123,8 @@ async def join_room(
     async with pool.acquire() as conn:
         room = await conn.fetchrow(
             "SELECT * FROM study_rooms WHERE id = $1 AND guild_id = $2",
-            room_id, guild_id,
+            room_id,
+            guild_id,
         )
         if not room:
             raise HTTPException(status_code=404, detail="ルームが見つかりません")
@@ -135,9 +136,7 @@ async def join_room(
             raise HTTPException(status_code=409, detail="ルームが満員です")
 
         # Leave any existing room
-        await conn.execute(
-            "DELETE FROM room_members WHERE user_id = $1", user_id
-        )
+        await conn.execute("DELETE FROM room_members WHERE user_id = $1", user_id)
 
         await conn.execute(
             """
@@ -146,26 +145,31 @@ async def join_room(
             ON CONFLICT (room_id, user_id) DO UPDATE
                 SET platform = 'web', topic = $3, joined_at = NOW()
             """,
-            room_id, user_id, topic,
+            room_id,
+            user_id,
+            topic,
         )
 
     # Publish event
     try:
         from api.services.redis_client import get_redis
+
         redis_conn = get_redis()
         if redis_conn:
             await redis_conn.publish(
                 "studybot:events",
-                json.dumps({
-                    "type": "room_join",
-                    "data": {
-                        "room_id": room_id,
-                        "user_id": user_id,
-                        "platform": "web",
-                        "topic": topic,
-                        "guild_id": guild_id,
-                    },
-                }),
+                json.dumps(
+                    {
+                        "type": "room_join",
+                        "data": {
+                            "room_id": room_id,
+                            "user_id": user_id,
+                            "platform": "web",
+                            "topic": topic,
+                            "guild_id": guild_id,
+                        },
+                    }
+                ),
             )
     except Exception:
         logger.debug("room_joinイベント発行失敗", exc_info=True)
@@ -186,19 +190,22 @@ async def leave_room(
     async with pool.acquire() as conn:
         member = await conn.fetchrow(
             "SELECT * FROM room_members WHERE room_id = $1 AND user_id = $2",
-            room_id, user_id,
+            room_id,
+            user_id,
         )
         if not member:
             raise HTTPException(status_code=404, detail="ルームに参加していません")
 
         await conn.execute(
             "DELETE FROM room_members WHERE room_id = $1 AND user_id = $2",
-            room_id, user_id,
+            room_id,
+            user_id,
         )
 
         # Record history
         joined_at = member["joined_at"]
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc)
         if joined_at.tzinfo is None:
             joined_at = joined_at.replace(tzinfo=timezone.utc)
@@ -210,7 +217,11 @@ async def leave_room(
                 (room_id, user_id, platform, joined_at, duration_minutes)
             VALUES ($1, $2, $3, $4, $5)
             """,
-            room_id, user_id, member["platform"], joined_at, duration,
+            room_id,
+            user_id,
+            member["platform"],
+            joined_at,
+            duration,
         )
 
         # Update collective progress
@@ -222,25 +233,29 @@ async def leave_room(
                     collective_progress_minutes + $2
                 WHERE id = $1
                 """,
-                room_id, duration,
+                room_id,
+                duration,
             )
 
     # Publish event
     try:
         from api.services.redis_client import get_redis
+
         redis_conn = get_redis()
         if redis_conn:
             await redis_conn.publish(
                 "studybot:events",
-                json.dumps({
-                    "type": "room_leave",
-                    "data": {
-                        "room_id": room_id,
-                        "user_id": user_id,
-                        "guild_id": guild_id,
-                        "duration_minutes": duration,
-                    },
-                }),
+                json.dumps(
+                    {
+                        "type": "room_leave",
+                        "data": {
+                            "room_id": room_id,
+                            "user_id": user_id,
+                            "guild_id": guild_id,
+                            "duration_minutes": duration,
+                        },
+                    }
+                ),
             )
     except Exception:
         logger.debug("room_leaveイベント発行失敗", exc_info=True)
@@ -268,7 +283,8 @@ async def get_room_history(
             ORDER BY rh.left_at DESC
             LIMIT $2
             """,
-            room_id, limit,
+            room_id,
+            limit,
         )
 
     return [

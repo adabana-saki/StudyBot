@@ -64,9 +64,7 @@ class StudyRoomCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("ルーム作成失敗", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("ルーム作成失敗", result["error"]))
             return
 
         emoji = THEME_EMOJIS.get(theme, "📚")
@@ -89,7 +87,9 @@ class StudyRoomCog(commands.Cog):
 
         if not rooms:
             await interaction.followup.send(
-                embed=info_embed("スタディルーム", "ルームがありません。/room create で作成しましょう！")
+                embed=info_embed(
+                    "スタディルーム", "ルームがありません。/room create で作成しましょう！"
+                )
             )
             return
 
@@ -133,9 +133,7 @@ class StudyRoomCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("参加失敗", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("参加失敗", result["error"]))
             return
 
         await interaction.followup.send(
@@ -153,9 +151,7 @@ class StudyRoomCog(commands.Cog):
             )
             return
 
-        result = await self.manager.leave_room(
-            current["room_id"], interaction.user.id
-        )
+        result = await self.manager.leave_room(current["room_id"], interaction.user.id)
         duration = result.get("duration_minutes", 0)
         await interaction.followup.send(
             embed=success_embed(
@@ -178,15 +174,14 @@ class StudyRoomCog(commands.Cog):
         await interaction.response.defer()
         room = await self.manager.room_repo.get_room(room_id)
         if not room:
-            await interaction.followup.send(
-                embed=error_embed("エラー", "ルームが見つかりません")
-            )
+            await interaction.followup.send(embed=error_embed("エラー", "ルームが見つかりません"))
             return
 
         async with self.manager.db_pool.acquire() as conn:
             await conn.execute(
                 "UPDATE study_rooms SET vc_channel_id = $2 WHERE id = $1",
-                room_id, vc_channel.id,
+                room_id,
+                vc_channel.id,
             )
 
         await interaction.followup.send(
@@ -207,21 +202,15 @@ class StudyRoomCog(commands.Cog):
         try:
             # Left a VC
             if before.channel and (not after.channel or after.channel != before.channel):
-                room = await self.manager.room_repo.get_room_by_vc_channel(
-                    before.channel.id
-                )
+                room = await self.manager.room_repo.get_room_by_vc_channel(before.channel.id)
                 if room:
                     await self.manager.leave_room(room["id"], member.id)
 
             # Joined a VC
             if after.channel and (not before.channel or before.channel != after.channel):
-                room = await self.manager.room_repo.get_room_by_vc_channel(
-                    after.channel.id
-                )
+                room = await self.manager.room_repo.get_room_by_vc_channel(after.channel.id)
                 if room:
-                    await self.manager.join_room(
-                        room["id"], member.id, "discord"
-                    )
+                    await self.manager.join_room(room["id"], member.id, "discord")
         except Exception:
             logger.debug("VC連携処理失敗", exc_info=True)
 

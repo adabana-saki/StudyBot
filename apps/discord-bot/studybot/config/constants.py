@@ -288,39 +288,87 @@ STOCK_CONFIG = {
 
 # 株式銘柄定義
 STOCK_SYMBOLS = [
-    {"symbol": "MATH", "name": "数学株", "topic_keyword": "数学",
-     "emoji": "📐", "sector": "理系", "description": "数学の学習量に連動"},
-    {"symbol": "ENG", "name": "英語株", "topic_keyword": "英語",
-     "emoji": "🔤", "sector": "語学", "description": "英語の学習量に連動"},
-    {"symbol": "SCI", "name": "理科株", "topic_keyword": "理科",
-     "emoji": "🔬", "sector": "理系", "description": "理科の学習量に連動"},
-    {"symbol": "HIST", "name": "歴史株", "topic_keyword": "歴史",
-     "emoji": "📜", "sector": "文系", "description": "歴史の学習量に連動"},
-    {"symbol": "CODE", "name": "プログラミング株", "topic_keyword": "プログラミング",
-     "emoji": "💻", "sector": "技術", "description": "プログラミングの学習量に連動"},
-    {"symbol": "JPN", "name": "国語株", "topic_keyword": "国語",
-     "emoji": "📝", "sector": "文系", "description": "国語の学習量に連動"},
-    {"symbol": "ART", "name": "芸術株", "topic_keyword": "芸術",
-     "emoji": "🎨", "sector": "芸術", "description": "芸術の学習量に連動"},
-    {"symbol": "ECON", "name": "経済株", "topic_keyword": "経済",
-     "emoji": "💰", "sector": "社会", "description": "経済の学習量に連動"},
+    {
+        "symbol": "MATH",
+        "name": "数学株",
+        "topic_keyword": "数学",
+        "emoji": "📐",
+        "sector": "理系",
+        "description": "数学の学習量に連動",
+    },
+    {
+        "symbol": "ENG",
+        "name": "英語株",
+        "topic_keyword": "英語",
+        "emoji": "🔤",
+        "sector": "語学",
+        "description": "英語の学習量に連動",
+    },
+    {
+        "symbol": "SCI",
+        "name": "理科株",
+        "topic_keyword": "理科",
+        "emoji": "🔬",
+        "sector": "理系",
+        "description": "理科の学習量に連動",
+    },
+    {
+        "symbol": "HIST",
+        "name": "歴史株",
+        "topic_keyword": "歴史",
+        "emoji": "📜",
+        "sector": "文系",
+        "description": "歴史の学習量に連動",
+    },
+    {
+        "symbol": "CODE",
+        "name": "プログラミング株",
+        "topic_keyword": "プログラミング",
+        "emoji": "💻",
+        "sector": "技術",
+        "description": "プログラミングの学習量に連動",
+    },
+    {
+        "symbol": "JPN",
+        "name": "国語株",
+        "topic_keyword": "国語",
+        "emoji": "📝",
+        "sector": "文系",
+        "description": "国語の学習量に連動",
+    },
+    {
+        "symbol": "ART",
+        "name": "芸術株",
+        "topic_keyword": "芸術",
+        "emoji": "🎨",
+        "sector": "芸術",
+        "description": "芸術の学習量に連動",
+    },
+    {
+        "symbol": "ECON",
+        "name": "経済株",
+        "topic_keyword": "経済",
+        "emoji": "💰",
+        "sector": "社会",
+        "description": "経済の学習量に連動",
+    },
 ]
 
 # 貯金銀行設定
 SAVINGS_CONFIG = {
     "regular_daily_rate": 0.001,  # 普通預金日利 0.1%
-    "fixed_daily_rate": 0.003,    # 定期預金日利 0.3%
-    "fixed_lock_days": 7,         # 定期預金ロック日数
-    "min_deposit": 10,            # 最低預金額
+    "fixed_daily_rate": 0.003,  # 定期預金日利 0.3%
+    "fixed_lock_days": 7,  # 定期預金ロック日数
+    "min_deposit": 10,  # 最低預金額
     "min_interest_balance": 100,  # 利息付与に必要な最低残高
-    "min_interest_amount": 1,     # 最低利息額
+    "min_interest_amount": 1,  # 最低利息額
 }
 
 # フリーマーケット設定
 MARKET_CONFIG = {
-    "fee_rate": 0.05,             # 取引手数料 5%
-    "listing_duration_days": 7,   # 出品期限 7日
+    "fee_rate": 0.05,  # 取引手数料 5%
+    "listing_duration_days": 7,  # 出品期限 7日
     "max_listings_per_user": 10,  # ユーザーあたり最大出品数
-    "min_price": 1,               # 最低出品価格
-    "max_price": 100000,          # 最高出品価格
+    "min_price": 1,  # 最低出品価格
+    "max_price": 100000,  # 最高出品価格
 }

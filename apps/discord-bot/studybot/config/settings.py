@@ -24,9 +24,7 @@ class Settings:
         # OpenAI
         self.OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
         self.OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        self.OPENAI_MODEL_HEAVY: str = os.getenv(
-            "OPENAI_MODEL_HEAVY", "gpt-4o"
-        )
+        self.OPENAI_MODEL_HEAVY: str = os.getenv("OPENAI_MODEL_HEAVY", "gpt-4o")
         self.AI_DAILY_LIMIT: int = int(os.getenv("AI_DAILY_LIMIT", "10"))
 
         # API / Web (Phase 2)

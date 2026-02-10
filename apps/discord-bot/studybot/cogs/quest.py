@@ -36,7 +36,7 @@ class QuestCog(commands.Cog):
             color=COLORS["quest"],
         )
 
-        for i, q in enumerate(quests, 1):
+        for _i, q in enumerate(quests, 1):
             quest_type = q.get("quest_type", "")
             label = self.manager.get_quest_label(quest_type)
             unit = self.manager.get_quest_unit(quest_type)
@@ -61,10 +61,7 @@ class QuestCog(commands.Cog):
             reward_coins = q.get("reward_coins", 0)
             embed.add_field(
                 name=f"#{quest_id} {label} ({target}{unit})",
-                value=(
-                    f"{status}\n"
-                    f"報酬: {reward_xp} XP + {reward_coins} 🪙"
-                ),
+                value=(f"{status}\n報酬: {reward_xp} XP + {reward_coins} 🪙"),
                 inline=False,
             )
 
@@ -93,9 +90,7 @@ class QuestCog(commands.Cog):
         )
 
         if "error" in result:
-            await interaction.followup.send(
-                embed=error_embed("クエスト報酬", result["error"])
-            )
+            await interaction.followup.send(embed=error_embed("クエスト報酬", result["error"]))
             return
 
         label = self.manager.get_quest_label(result["quest_type"])

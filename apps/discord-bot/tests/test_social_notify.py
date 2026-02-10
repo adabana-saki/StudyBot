@@ -1,8 +1,6 @@
 """ソーシャル通知のテスト"""
 
-import asyncio
-from datetime import UTC, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 

@@ -3,7 +3,6 @@
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime
 
 import discord
 from discord.ext import commands, tasks
@@ -86,9 +85,7 @@ class ScheduledActionsCog(commands.Cog):
             return "missing user_id or message"
 
         try:
-            user = self.bot.get_user(int(user_id)) or await self.bot.fetch_user(
-                int(user_id)
-            )
+            user = self.bot.get_user(int(user_id)) or await self.bot.fetch_user(int(user_id))
             if user:
                 embed = discord.Embed(
                     title="📩 メッセージ",
@@ -173,10 +170,12 @@ class ScheduledActionsCog(commands.Cog):
                     if isinstance(action_data, str):
                         action_data = json.loads(action_data)
 
-                    result = await self._execute_action({
-                        "action_type": row["action_type"],
-                        "action_data": action_data,
-                    })
+                    result = await self._execute_action(
+                        {
+                            "action_type": row["action_type"],
+                            "action_data": action_data,
+                        }
+                    )
 
                     await conn.execute(
                         """

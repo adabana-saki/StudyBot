@@ -2,7 +2,7 @@
 
 import json
 from datetime import UTC, date, datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 GUILD_ID = 987654321
 NOW = datetime(2025, 6, 15, 12, 0, 0, tzinfo=UTC)

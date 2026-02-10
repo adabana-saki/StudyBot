@@ -370,9 +370,7 @@ async def test_streak_protection_dm_forbidden(mock_db_pool, mock_bot):
     ]
 
     mock_user = AsyncMock()
-    mock_user.send = AsyncMock(
-        side_effect=discord.Forbidden(MagicMock(), "Cannot send messages")
-    )
+    mock_user.send = AsyncMock(side_effect=discord.Forbidden(MagicMock(), "Cannot send messages"))
     mock_bot.get_user.return_value = mock_user
 
     cog = GamificationCog(mock_bot, manager)
@@ -1040,9 +1038,7 @@ async def test_team_quest_progress_update(mock_db_pool):
     ]
     conn.execute.return_value = None
 
-    await manager.update_team_quest_progress(
-        user_id=123, quest_type="team_pomodoro", delta=1
-    )
+    await manager.update_team_quest_progress(user_id=123, quest_type="team_pomodoro", delta=1)
     # Should have updated both teams
     assert conn.execute.call_count >= 2 or conn.fetch.call_count >= 1
 
@@ -1308,7 +1304,13 @@ async def test_season_progress_with_data(gamification_manager):
 
     conn.fetchrow.side_effect = [
         # get_active_season
-        {"id": 1, "name": "シーズン1", "start_date": date.today(), "end_date": date.today() + timedelta(days=30), "status": "active"},
+        {
+            "id": 1,
+            "name": "シーズン1",
+            "start_date": date.today(),
+            "end_date": date.today() + timedelta(days=30),
+            "status": "active",
+        },
         # get_season_progress
         {"user_id": 123, "season_id": 1, "total_xp": 500, "tier": 3, "last_claimed_tier": 3},
     ]
@@ -1328,7 +1330,13 @@ async def test_add_season_xp_tier_up(gamification_manager):
 
     conn.fetchrow.side_effect = [
         # get_active_season
-        {"id": 1, "name": "シーズン1", "start_date": date.today(), "end_date": date.today() + timedelta(days=30), "status": "active"},
+        {
+            "id": 1,
+            "name": "シーズン1",
+            "start_date": date.today(),
+            "end_date": date.today() + timedelta(days=30),
+            "status": "active",
+        },
         # upsert_season_progress
         {"user_id": 123, "season_id": 1, "total_xp": 350, "tier": 1, "last_claimed_tier": 1},
     ]
@@ -1349,7 +1357,13 @@ async def test_add_season_xp_no_tier_change(gamification_manager):
 
     conn.fetchrow.side_effect = [
         # get_active_season
-        {"id": 1, "name": "シーズン1", "start_date": date.today(), "end_date": date.today() + timedelta(days=30), "status": "active"},
+        {
+            "id": 1,
+            "name": "シーズン1",
+            "start_date": date.today(),
+            "end_date": date.today() + timedelta(days=30),
+            "status": "active",
+        },
         # upsert_season_progress
         {"user_id": 123, "season_id": 1, "total_xp": 150, "tier": 1, "last_claimed_tier": 1},
     ]
@@ -1367,8 +1381,11 @@ async def test_season_leaderboard(gamification_manager):
     manager, conn = gamification_manager
 
     conn.fetchrow.return_value = {
-        "id": 1, "name": "シーズン1", "start_date": date.today(),
-        "end_date": date.today() + timedelta(days=30), "status": "active",
+        "id": 1,
+        "name": "シーズン1",
+        "start_date": date.today(),
+        "end_date": date.today() + timedelta(days=30),
+        "status": "active",
     }
     conn.fetch.return_value = [
         {"user_id": 1, "username": "Alice", "total_xp": 5000, "tier": 8},

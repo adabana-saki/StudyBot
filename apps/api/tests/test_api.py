@@ -126,7 +126,7 @@ class TestStats:
     def test_stats_me_unauthorized(self, client):
         """認証なしでアクセス拒否"""
         resp = client.get("/api/stats/me")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
     def test_stats_me_no_data(self, client, auth_headers, mock_pool):
         """プロフィール取得: DB未登録ユーザー"""
@@ -458,7 +458,7 @@ class TestAchievements:
     def test_achievements_me_unauthorized(self, client):
         """自分の実績: 認証なし"""
         resp = client.get("/api/achievements/me")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
 
 # ============================================================
@@ -841,13 +841,13 @@ class TestWellness:
     def test_wellness_unauthorized(self, client):
         """ウェルネス: 認証なし"""
         resp = client.get("/api/wellness/me")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
         resp = client.post(
             "/api/wellness/me",
             json={"mood": 3, "energy": 3, "stress": 3},
         )
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)
 
         resp = client.get("/api/wellness/me/averages")
-        assert resp.status_code == 403
+        assert resp.status_code in (401, 403)

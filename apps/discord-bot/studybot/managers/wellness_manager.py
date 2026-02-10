@@ -94,7 +94,9 @@ class WellnessManager:
         if not averages and not today_log:
             return {
                 "has_data": False,
-                "message": "ウェルネスデータがありません。\n`/wellness check` で今の状態を記録しましょう！",
+                "message": (
+                    "ウェルネスデータがありません。\n`/wellness check` で今の状態を記録しましょう！"
+                ),
             }
 
         # 今日のデータ or 直近平均を使用
@@ -107,7 +109,10 @@ class WellnessManager:
             recommended_minutes = 50
             session_type = "deep_focus"
             session_label = "ディープフォーカス（50分）"
-            advice = "エネルギーが高く、ストレスも低い最高のコンディションです！長めのセッションに挑戦しましょう。"
+            advice = (
+                "エネルギーが高く、ストレスも低い最高のコンディションです！"
+                "長めのセッションに挑戦しましょう。"
+            )
         elif energy >= 3 and stress <= 3:
             recommended_minutes = 25
             session_type = "standard"
@@ -117,7 +122,9 @@ class WellnessManager:
             recommended_minutes = 15
             session_type = "light"
             session_label = "ライトセッション（15分）"
-            advice = "少し疲れているようです。短めのセッションで無理なく学習しましょう。休憩も大切に。"
+            advice = (
+                "少し疲れているようです。短めのセッションで無理なく学習しましょう。休憩も大切に。"
+            )
         else:
             recommended_minutes = 20
             session_type = "moderate"

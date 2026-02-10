@@ -4,7 +4,7 @@ import logging
 import math
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 
 from api.database import get_pool
 from api.dependencies import get_current_user
@@ -42,9 +42,7 @@ router = APIRouter(prefix="/api/market", tags=["market"])
 async def get_stocks(current_user: dict = Depends(get_current_user)):
     pool = get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            "SELECT * FROM study_stocks WHERE active = true ORDER BY symbol"
-        )
+        rows = await conn.fetch("SELECT * FROM study_stocks WHERE active = true ORDER BY symbol")
     result = []
     for r in rows:
         change_pct = 0.0
@@ -52,26 +50,31 @@ async def get_stocks(current_user: dict = Depends(get_current_user)):
             change_pct = round(
                 ((r["current_price"] - r["previous_close"]) / r["previous_close"]) * 100, 1
             )
-        result.append(StockResponse(
-            id=r["id"], symbol=r["symbol"], name=r["name"],
-            topic_keyword=r["topic_keyword"], description=r["description"] or "",
-            emoji=r["emoji"], sector=r["sector"] or "",
-            base_price=r["base_price"], current_price=r["current_price"],
-            previous_close=r["previous_close"], total_shares=r["total_shares"],
-            circulating_shares=r["circulating_shares"], change_pct=change_pct,
-        ))
+        result.append(
+            StockResponse(
+                id=r["id"],
+                symbol=r["symbol"],
+                name=r["name"],
+                topic_keyword=r["topic_keyword"],
+                description=r["description"] or "",
+                emoji=r["emoji"],
+                sector=r["sector"] or "",
+                base_price=r["base_price"],
+                current_price=r["current_price"],
+                previous_close=r["previous_close"],
+                total_shares=r["total_shares"],
+                circulating_shares=r["circulating_shares"],
+                change_pct=change_pct,
+            )
+        )
     return result
 
 
 @router.get("/stocks/{symbol}", response_model=StockDetailResponse)
-async def get_stock_detail(
-    symbol: str, current_user: dict = Depends(get_current_user)
-):
+async def get_stock_detail(symbol: str, current_user: dict = Depends(get_current_user)):
     pool = get_pool()
     async with pool.acquire() as conn:
-        stock = await conn.fetchrow(
-            "SELECT * FROM study_stocks WHERE symbol = $1", symbol.upper()
-        )
+        stock = await conn.fetchrow("SELECT * FROM study_stocks WHERE symbol = $1", symbol.upper())
         if not stock:
             raise HTTPException(status_code=404, detail="銘柄が見つかりません")
 
@@ -93,34 +96,42 @@ async def get_stock_detail(
 
     history = [
         StockPriceHistory(
-            price=h["price"], volume=h["volume"],
-            study_minutes=h["study_minutes"], study_sessions=h["study_sessions"],
+            price=h["price"],
+            volume=h["volume"],
+            study_minutes=h["study_minutes"],
+            study_sessions=h["study_sessions"],
             recorded_date=h["recorded_date"],
         )
         for h in reversed(history_rows)
     ]
 
     return StockDetailResponse(
-        id=stock["id"], symbol=stock["symbol"], name=stock["name"],
-        topic_keyword=stock["topic_keyword"], description=stock["description"] or "",
-        emoji=stock["emoji"], sector=stock["sector"] or "",
-        base_price=stock["base_price"], current_price=stock["current_price"],
-        previous_close=stock["previous_close"], total_shares=stock["total_shares"],
-        circulating_shares=stock["circulating_shares"], change_pct=change_pct,
+        id=stock["id"],
+        symbol=stock["symbol"],
+        name=stock["name"],
+        topic_keyword=stock["topic_keyword"],
+        description=stock["description"] or "",
+        emoji=stock["emoji"],
+        sector=stock["sector"] or "",
+        base_price=stock["base_price"],
+        current_price=stock["current_price"],
+        previous_close=stock["previous_close"],
+        total_shares=stock["total_shares"],
+        circulating_shares=stock["circulating_shares"],
+        change_pct=change_pct,
         history=history,
     )
 
 
 @router.get("/stocks/{symbol}/history", response_model=list[StockPriceHistory])
 async def get_stock_history(
-    symbol: str, days: int = 30,
+    symbol: str,
+    days: int = 30,
     current_user: dict = Depends(get_current_user),
 ):
     pool = get_pool()
     async with pool.acquire() as conn:
-        stock = await conn.fetchrow(
-            "SELECT id FROM study_stocks WHERE symbol = $1", symbol.upper()
-        )
+        stock = await conn.fetchrow("SELECT id FROM study_stocks WHERE symbol = $1", symbol.upper())
         if not stock:
             raise HTTPException(status_code=404, detail="銘柄が見つかりません")
 
@@ -131,13 +142,16 @@ async def get_stock_history(
             WHERE stock_id = $1 AND recorded_date >= CURRENT_DATE - $2::INT
             ORDER BY recorded_date
             """,
-            stock["id"], days,
+            stock["id"],
+            days,
         )
 
     return [
         StockPriceHistory(
-            price=r["price"], volume=r["volume"],
-            study_minutes=r["study_minutes"], study_sessions=r["study_sessions"],
+            price=r["price"],
+            volume=r["volume"],
+            study_minutes=r["study_minutes"],
+            study_sessions=r["study_sessions"],
             recorded_date=r["recorded_date"],
         )
         for r in rows
@@ -146,7 +160,8 @@ async def get_stock_history(
 
 @router.post("/stocks/{symbol}/buy", response_model=StockTradeResponse)
 async def buy_stock(
-    symbol: str, req: StockTradeRequest,
+    symbol: str,
+    req: StockTradeRequest,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -170,7 +185,9 @@ async def buy_stock(
                 WHERE user_id = $1 AND balance >= $2
                 RETURNING balance
                 """,
-                user_id, total_cost, datetime.now(UTC),
+                user_id,
+                total_cost,
+                datetime.now(UTC),
             )
             if not spent:
                 raise HTTPException(status_code=400, detail=f"コイン不足 (必要: {total_cost:,})")
@@ -178,7 +195,8 @@ async def buy_stock(
             # 保有株更新
             existing = await conn.fetchrow(
                 "SELECT shares, total_invested FROM user_stock_holdings WHERE user_id = $1 AND stock_id = $2",
-                user_id, stock["id"],
+                user_id,
+                stock["id"],
             )
             if existing:
                 new_shares = existing["shares"] + req.shares
@@ -190,7 +208,12 @@ async def buy_stock(
                     SET shares = $3, avg_buy_price = $4, total_invested = $5, updated_at = $6
                     WHERE user_id = $1 AND stock_id = $2
                     """,
-                    user_id, stock["id"], new_shares, new_avg, new_invested, datetime.now(UTC),
+                    user_id,
+                    stock["id"],
+                    new_shares,
+                    new_avg,
+                    new_invested,
+                    datetime.now(UTC),
                 )
             else:
                 await conn.execute(
@@ -198,31 +221,46 @@ async def buy_stock(
                     INSERT INTO user_stock_holdings (user_id, stock_id, shares, avg_buy_price, total_invested, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     """,
-                    user_id, stock["id"], req.shares, price, total_cost, datetime.now(UTC),
+                    user_id,
+                    stock["id"],
+                    req.shares,
+                    price,
+                    total_cost,
+                    datetime.now(UTC),
                 )
 
             await conn.execute(
                 "UPDATE study_stocks SET circulating_shares = circulating_shares + $2 WHERE id = $1",
-                stock["id"], req.shares,
+                stock["id"],
+                req.shares,
             )
             await conn.execute(
                 """
                 INSERT INTO stock_transactions (user_id, stock_id, transaction_type, shares, price_per_share, total_amount)
                 VALUES ($1, $2, 'buy', $3, $4, $5)
                 """,
-                user_id, stock["id"], req.shares, price, total_cost,
+                user_id,
+                stock["id"],
+                req.shares,
+                price,
+                total_cost,
             )
 
     return StockTradeResponse(
-        symbol=stock["symbol"], name=stock["name"], emoji=stock["emoji"],
-        shares=req.shares, price=price, total=total_cost,
+        symbol=stock["symbol"],
+        name=stock["name"],
+        emoji=stock["emoji"],
+        shares=req.shares,
+        price=price,
+        total=total_cost,
         balance=spent["balance"],
     )
 
 
 @router.post("/stocks/{symbol}/sell", response_model=StockTradeResponse)
 async def sell_stock(
-    symbol: str, req: StockTradeRequest,
+    symbol: str,
+    req: StockTradeRequest,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -241,7 +279,9 @@ async def sell_stock(
         async with conn.transaction():
             holding = await conn.fetchrow(
                 "SELECT * FROM user_stock_holdings WHERE user_id = $1 AND stock_id = $2 AND shares >= $3",
-                user_id, stock["id"], req.shares,
+                user_id,
+                stock["id"],
+                req.shares,
             )
             if not holding:
                 raise HTTPException(status_code=400, detail="保有株数が不足しています")
@@ -252,7 +292,8 @@ async def sell_stock(
             if new_shares == 0:
                 await conn.execute(
                     "DELETE FROM user_stock_holdings WHERE user_id = $1 AND stock_id = $2",
-                    user_id, stock["id"],
+                    user_id,
+                    stock["id"],
                 )
             else:
                 ratio = new_shares / holding["shares"]
@@ -264,12 +305,18 @@ async def sell_stock(
                     SET shares = $3, avg_buy_price = $4, total_invested = $5, updated_at = $6
                     WHERE user_id = $1 AND stock_id = $2
                     """,
-                    user_id, stock["id"], new_shares, new_avg, new_invested, datetime.now(UTC),
+                    user_id,
+                    stock["id"],
+                    new_shares,
+                    new_avg,
+                    new_invested,
+                    datetime.now(UTC),
                 )
 
             await conn.execute(
                 "UPDATE study_stocks SET circulating_shares = GREATEST(circulating_shares - $2, 0) WHERE id = $1",
-                stock["id"], req.shares,
+                stock["id"],
+                req.shares,
             )
 
             balance_row = await conn.fetchrow(
@@ -279,7 +326,9 @@ async def sell_stock(
                 WHERE user_id = $1
                 RETURNING balance
                 """,
-                user_id, total_amount, datetime.now(UTC),
+                user_id,
+                total_amount,
+                datetime.now(UTC),
             )
 
             await conn.execute(
@@ -287,12 +336,20 @@ async def sell_stock(
                 INSERT INTO stock_transactions (user_id, stock_id, transaction_type, shares, price_per_share, total_amount)
                 VALUES ($1, $2, 'sell', $3, $4, $5)
                 """,
-                user_id, stock["id"], req.shares, price, total_amount,
+                user_id,
+                stock["id"],
+                req.shares,
+                price,
+                total_amount,
             )
 
     return StockTradeResponse(
-        symbol=stock["symbol"], name=stock["name"], emoji=stock["emoji"],
-        shares=req.shares, price=price, total=total_amount,
+        symbol=stock["symbol"],
+        name=stock["name"],
+        emoji=stock["emoji"],
+        shares=req.shares,
+        price=price,
+        total=total_amount,
         balance=balance_row["balance"] if balance_row else 0,
         profit=profit,
     )
@@ -321,13 +378,21 @@ async def get_portfolio(current_user: dict = Depends(get_current_user)):
         mv = r["shares"] * r["current_price"]
         profit = mv - r["total_invested"]
         pct = round((profit / r["total_invested"]) * 100, 1) if r["total_invested"] > 0 else 0.0
-        holdings.append(StockHolding(
-            symbol=r["symbol"], name=r["name"], emoji=r["emoji"],
-            sector=r["sector"] or "", shares=r["shares"],
-            avg_buy_price=r["avg_buy_price"], total_invested=r["total_invested"],
-            current_price=r["current_price"], market_value=mv,
-            profit=profit, profit_pct=pct,
-        ))
+        holdings.append(
+            StockHolding(
+                symbol=r["symbol"],
+                name=r["name"],
+                emoji=r["emoji"],
+                sector=r["sector"] or "",
+                shares=r["shares"],
+                avg_buy_price=r["avg_buy_price"],
+                total_invested=r["total_invested"],
+                current_price=r["current_price"],
+                market_value=mv,
+                profit=profit,
+                profit_pct=pct,
+            )
+        )
         total_value += mv
         total_invested += r["total_invested"]
 
@@ -335,8 +400,10 @@ async def get_portfolio(current_user: dict = Depends(get_current_user)):
     tpct = round((tp / total_invested) * 100, 1) if total_invested > 0 else 0.0
 
     return PortfolioResponse(
-        holdings=holdings, total_value=total_value,
-        total_invested=total_invested, total_profit=tp,
+        holdings=holdings,
+        total_value=total_value,
+        total_invested=total_invested,
+        total_profit=tp,
         total_profit_pct=tpct,
     )
 
@@ -355,7 +422,8 @@ async def get_portfolio_summary(current_user: dict = Depends(get_current_user)):
 
 @router.get("/transactions", response_model=PaginatedResponse[StockTransactionResponse])
 async def get_transactions(
-    limit: int = 20, offset: int = 0,
+    limit: int = 20,
+    offset: int = 0,
     current_user: dict = Depends(get_current_user),
 ):
     user_id = current_user["user_id"]
@@ -373,14 +441,21 @@ async def get_transactions(
             ORDER BY t.created_at DESC
             LIMIT $2 OFFSET $3
             """,
-            user_id, limit, offset,
+            user_id,
+            limit,
+            offset,
         )
 
     items = [
         StockTransactionResponse(
-            id=r["id"], symbol=r["symbol"], name=r["name"], emoji=r["emoji"],
-            transaction_type=r["transaction_type"], shares=r["shares"],
-            price_per_share=r["price_per_share"], total_amount=r["total_amount"],
+            id=r["id"],
+            symbol=r["symbol"],
+            name=r["name"],
+            emoji=r["emoji"],
+            transaction_type=r["transaction_type"],
+            shares=r["shares"],
+            price_per_share=r["price_per_share"],
+            total_amount=r["total_amount"],
             created_at=r["created_at"],
         )
         for r in rows
@@ -403,9 +478,12 @@ async def get_savings(current_user: dict = Depends(get_current_user)):
 
     accounts = [
         SavingsAccountResponse(
-            id=r["id"], account_type=r["account_type"],
-            balance=r["balance"], interest_rate=r["interest_rate"],
-            lock_days=r["lock_days"], maturity_date=r["maturity_date"],
+            id=r["id"],
+            account_type=r["account_type"],
+            balance=r["balance"],
+            interest_rate=r["interest_rate"],
+            lock_days=r["lock_days"],
+            maturity_date=r["maturity_date"],
             total_interest_earned=r["total_interest_earned"],
             last_interest_at=r["last_interest_at"],
         )
@@ -415,7 +493,8 @@ async def get_savings(current_user: dict = Depends(get_current_user)):
     total_interest = sum(a.total_interest_earned for a in accounts)
 
     return SavingsStatusResponse(
-        accounts=accounts, total_savings=total_savings,
+        accounts=accounts,
+        total_savings=total_savings,
         total_interest=total_interest,
     )
 
@@ -447,7 +526,9 @@ async def deposit(
                 WHERE user_id = $1 AND balance >= $2
                 RETURNING balance
                 """,
-                user_id, req.amount, now,
+                user_id,
+                req.amount,
+                now,
             )
             if not spent:
                 raise HTTPException(status_code=400, detail="コイン不足")
@@ -463,14 +544,23 @@ async def deposit(
                     last_interest_at = COALESCE(savings_accounts.last_interest_at, $7)
                 RETURNING *
                 """,
-                user_id, req.account_type, req.amount, rate, lock_days, maturity_date, now,
+                user_id,
+                req.account_type,
+                req.amount,
+                rate,
+                lock_days,
+                maturity_date,
+                now,
             )
 
     type_label = "普通預金" if req.account_type == "regular" else "定期預金"
     return SavingsTransactionResponse(
-        account_type=req.account_type, type_label=type_label,
-        amount=req.amount, balance=row["balance"],
-        interest_rate=rate, lock_days=lock_days,
+        account_type=req.account_type,
+        type_label=type_label,
+        amount=req.amount,
+        balance=row["balance"],
+        interest_rate=rate,
+        lock_days=lock_days,
     )
 
 
@@ -487,7 +577,9 @@ async def withdraw(
         async with conn.transaction():
             account = await conn.fetchrow(
                 "SELECT * FROM savings_accounts WHERE user_id = $1 AND account_type = $2 AND balance >= $3",
-                user_id, req.account_type, req.amount,
+                user_id,
+                req.account_type,
+                req.amount,
             )
             if not account:
                 raise HTTPException(status_code=400, detail="残高不足または口座なし")
@@ -499,7 +591,9 @@ async def withdraw(
             new_balance = account["balance"] - req.amount
             await conn.execute(
                 "UPDATE savings_accounts SET balance = $3 WHERE user_id = $1 AND account_type = $2",
-                user_id, req.account_type, new_balance,
+                user_id,
+                req.account_type,
+                new_balance,
             )
             await conn.execute(
                 """
@@ -507,13 +601,17 @@ async def withdraw(
                 SET balance = balance + $2, total_earned = total_earned + $2, updated_at = $3
                 WHERE user_id = $1
                 """,
-                user_id, req.amount, now,
+                user_id,
+                req.amount,
+                now,
             )
 
     type_label = "普通預金" if req.account_type == "regular" else "定期預金"
     return SavingsTransactionResponse(
-        account_type=req.account_type, type_label=type_label,
-        amount=req.amount, new_balance=new_balance,
+        account_type=req.account_type,
+        type_label=type_label,
+        amount=req.amount,
+        new_balance=new_balance,
     )
 
 
@@ -534,13 +632,16 @@ async def get_interest_history(
             ORDER BY ih.calculated_at DESC
             LIMIT $2
             """,
-            user_id, limit,
+            user_id,
+            limit,
         )
 
     return [
         InterestHistoryResponse(
-            id=r["id"], account_type=r["account_type"],
-            amount=r["amount"], balance_after=r["balance_after"],
+            id=r["id"],
+            account_type=r["account_type"],
+            amount=r["amount"],
+            balance_after=r["balance_after"],
             calculated_at=r["calculated_at"],
         )
         for r in rows
@@ -552,7 +653,9 @@ async def get_interest_history(
 
 @router.get("/flea/listings", response_model=PaginatedResponse[MarketListingResponse])
 async def get_listings(
-    item_id: int | None = None, limit: int = 20, offset: int = 0,
+    item_id: int | None = None,
+    limit: int = 20,
+    offset: int = 0,
     current_user: dict = Depends(get_current_user),
 ):
     pool = get_pool()
@@ -572,7 +675,9 @@ async def get_listings(
                 ORDER BY ml.price_per_unit ASC
                 LIMIT $2 OFFSET $3
                 """,
-                item_id, limit, offset,
+                item_id,
+                limit,
+                offset,
             )
         else:
             total = await conn.fetchval(
@@ -588,15 +693,24 @@ async def get_listings(
                 ORDER BY ml.created_at DESC
                 LIMIT $1 OFFSET $2
                 """,
-                limit, offset,
+                limit,
+                offset,
             )
 
     items = [
         MarketListingResponse(
-            id=r["id"], seller_id=r["seller_id"], seller_name=r["seller_name"],
-            item_id=r["item_id"], name=r["name"], emoji=r["emoji"], rarity=r["rarity"],
-            quantity=r["quantity"], price_per_unit=r["price_per_unit"],
-            status=r["status"], expires_at=r["expires_at"], created_at=r["created_at"],
+            id=r["id"],
+            seller_id=r["seller_id"],
+            seller_name=r["seller_name"],
+            item_id=r["item_id"],
+            name=r["name"],
+            emoji=r["emoji"],
+            rarity=r["rarity"],
+            quantity=r["quantity"],
+            price_per_unit=r["price_per_unit"],
+            status=r["status"],
+            expires_at=r["expires_at"],
+            created_at=r["created_at"],
         )
         for r in rows
     ]
@@ -617,7 +731,9 @@ async def create_listing(
         async with conn.transaction():
             inv = await conn.fetchrow(
                 "SELECT quantity FROM user_inventory WHERE user_id = $1 AND item_id = $2 AND quantity >= $3",
-                user_id, req.item_id, req.quantity,
+                user_id,
+                req.item_id,
+                req.quantity,
             )
             if not inv:
                 raise HTTPException(status_code=400, detail="アイテム不足")
@@ -626,12 +742,15 @@ async def create_listing(
             if new_qty == 0:
                 await conn.execute(
                     "DELETE FROM user_inventory WHERE user_id = $1 AND item_id = $2",
-                    user_id, req.item_id,
+                    user_id,
+                    req.item_id,
                 )
             else:
                 await conn.execute(
                     "UPDATE user_inventory SET quantity = $3 WHERE user_id = $1 AND item_id = $2",
-                    user_id, req.item_id, new_qty,
+                    user_id,
+                    req.item_id,
+                    new_qty,
                 )
 
             row = await conn.fetchrow(
@@ -640,16 +759,28 @@ async def create_listing(
                 VALUES ($1, $2, $3, $4, $5)
                 RETURNING *
                 """,
-                user_id, req.item_id, req.quantity, req.price_per_unit, expires_at,
+                user_id,
+                req.item_id,
+                req.quantity,
+                req.price_per_unit,
+                expires_at,
             )
 
-        item = await conn.fetchrow("SELECT name, emoji, rarity FROM shop_items WHERE id = $1", req.item_id)
+        item = await conn.fetchrow(
+            "SELECT name, emoji, rarity FROM shop_items WHERE id = $1", req.item_id
+        )
 
     return UserListingResponse(
-        id=row["id"], item_id=row["item_id"], name=item["name"],
-        emoji=item["emoji"], rarity=item["rarity"], quantity=row["quantity"],
-        price_per_unit=row["price_per_unit"], status=row["status"],
-        expires_at=row["expires_at"], created_at=row["created_at"],
+        id=row["id"],
+        item_id=row["item_id"],
+        name=item["name"],
+        emoji=item["emoji"],
+        rarity=item["rarity"],
+        quantity=row["quantity"],
+        price_per_unit=row["price_per_unit"],
+        status=row["status"],
+        expires_at=row["expires_at"],
+        created_at=row["created_at"],
     )
 
 
@@ -685,10 +816,14 @@ async def buy_listing(
                 WHERE user_id = $1 AND balance >= $2
                 RETURNING balance
                 """,
-                user_id, total_with_fee, now,
+                user_id,
+                total_with_fee,
+                now,
             )
             if not spent:
-                raise HTTPException(status_code=400, detail=f"コイン不足 (必要: {total_with_fee:,})")
+                raise HTTPException(
+                    status_code=400, detail=f"コイン不足 (必要: {total_with_fee:,})"
+                )
 
             await conn.execute(
                 """
@@ -696,7 +831,9 @@ async def buy_listing(
                 SET balance = balance + $2, total_earned = total_earned + $2, updated_at = $3
                 WHERE user_id = $1
                 """,
-                listing["seller_id"], total, now,
+                listing["seller_id"],
+                total,
+                now,
             )
 
             await conn.execute(
@@ -705,7 +842,10 @@ async def buy_listing(
                 VALUES ($1, $2, $3, $4)
                 ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + $3
                 """,
-                user_id, listing["item_id"], listing["quantity"], now,
+                user_id,
+                listing["item_id"],
+                listing["quantity"],
+                now,
             )
 
             await conn.execute(
@@ -718,9 +858,14 @@ async def buy_listing(
                     (listing_id, seller_id, buyer_id, item_id, quantity, price_per_unit, total_amount, fee)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 """,
-                listing_id, listing["seller_id"], user_id,
-                listing["item_id"], listing["quantity"],
-                listing["price_per_unit"], total, fee,
+                listing_id,
+                listing["seller_id"],
+                user_id,
+                listing["item_id"],
+                listing["quantity"],
+                listing["price_per_unit"],
+                total,
+                fee,
             )
 
         item = await conn.fetchrow(
@@ -732,7 +877,9 @@ async def buy_listing(
         item_name=item["name"] if item else "",
         item_emoji=item["emoji"] if item else "",
         quantity=listing["quantity"],
-        total=total, fee=fee, balance=spent["balance"],
+        total=total,
+        fee=fee,
+        balance=spent["balance"],
     )
 
 
@@ -749,7 +896,8 @@ async def cancel_listing(
         async with conn.transaction():
             listing = await conn.fetchrow(
                 "SELECT * FROM market_listings WHERE id = $1 AND seller_id = $2 AND status = 'active' FOR UPDATE",
-                listing_id, user_id,
+                listing_id,
+                user_id,
             )
             if not listing:
                 raise HTTPException(status_code=404, detail="出品が見つかりません")
@@ -760,7 +908,10 @@ async def cancel_listing(
                 VALUES ($1, $2, $3, $4)
                 ON CONFLICT (user_id, item_id) DO UPDATE SET quantity = user_inventory.quantity + $3
                 """,
-                user_id, listing["item_id"], listing["quantity"], now,
+                user_id,
+                listing["item_id"],
+                listing["quantity"],
+                now,
             )
 
             await conn.execute(
@@ -789,10 +940,16 @@ async def get_my_listings(current_user: dict = Depends(get_current_user)):
 
     return [
         UserListingResponse(
-            id=r["id"], item_id=r["item_id"], name=r["name"],
-            emoji=r["emoji"], rarity=r["rarity"], quantity=r["quantity"],
-            price_per_unit=r["price_per_unit"], status=r["status"],
-            expires_at=r["expires_at"], created_at=r["created_at"],
+            id=r["id"],
+            item_id=r["item_id"],
+            name=r["name"],
+            emoji=r["emoji"],
+            rarity=r["rarity"],
+            quantity=r["quantity"],
+            price_per_unit=r["price_per_unit"],
+            status=r["status"],
+            expires_at=r["expires_at"],
+            created_at=r["created_at"],
         )
         for r in rows
     ]
@@ -800,7 +957,8 @@ async def get_my_listings(current_user: dict = Depends(get_current_user)):
 
 @router.get("/flea/items/{item_id}/price-history", response_model=list[ItemPriceHistoryResponse])
 async def get_item_price_history(
-    item_id: int, days: int = 30,
+    item_id: int,
+    days: int = 30,
     current_user: dict = Depends(get_current_user),
 ):
     pool = get_pool()
@@ -811,13 +969,16 @@ async def get_item_price_history(
             WHERE item_id = $1 AND recorded_date >= CURRENT_DATE - $2::INT
             ORDER BY recorded_date
             """,
-            item_id, days,
+            item_id,
+            days,
         )
 
     return [
         ItemPriceHistoryResponse(
-            avg_price=r["avg_price"], min_price=r["min_price"],
-            max_price=r["max_price"], volume=r["volume"],
+            avg_price=r["avg_price"],
+            min_price=r["min_price"],
+            max_price=r["max_price"],
+            volume=r["volume"],
             recorded_date=r["recorded_date"],
         )
         for r in rows

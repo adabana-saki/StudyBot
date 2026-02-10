@@ -204,9 +204,7 @@ class GamificationRepository(BaseRepository):
 
     # --- 離脱検知 ---
 
-    async def get_churned_users(
-        self, min_streak: int = 10, inactive_days: int = 2
-    ) -> list[dict]:
+    async def get_churned_users(self, min_streak: int = 10, inactive_days: int = 2) -> list[dict]:
         """ストリーク後に学習が途絶えたユーザーを取得"""
         cutoff = date.today() - timedelta(days=inactive_days)
         async with self.db_pool.acquire() as conn:
@@ -281,8 +279,8 @@ class GamificationRepository(BaseRepository):
         pomo_total = pomo["total"] if pomo else 0
         focus_total = focus["total"] if focus else 0
         session_total = pomo_total + focus_total
-        session_completed = (
-            (pomo["completed"] if pomo else 0) + (focus["completed"] if focus else 0)
+        session_completed = (pomo["completed"] if pomo else 0) + (
+            focus["completed"] if focus else 0
         )
 
         return {
@@ -408,9 +406,7 @@ class GamificationRepository(BaseRepository):
             )
             return dict(row) if row else None
 
-    async def create_season(
-        self, name: str, start_date: date, end_date: date
-    ) -> int:
+    async def create_season(self, name: str, start_date: date, end_date: date) -> int:
         async with self.db_pool.acquire() as conn:
             return await conn.fetchval(
                 """
@@ -435,9 +431,7 @@ class GamificationRepository(BaseRepository):
             )
             return dict(row) if row else None
 
-    async def upsert_season_progress(
-        self, user_id: int, season_id: int, xp_delta: int
-    ) -> dict:
+    async def upsert_season_progress(self, user_id: int, season_id: int, xp_delta: int) -> dict:
         async with self.db_pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
@@ -454,9 +448,7 @@ class GamificationRepository(BaseRepository):
             )
             return dict(row) if row else {}
 
-    async def update_season_tier(
-        self, user_id: int, season_id: int, tier: int
-    ) -> None:
+    async def update_season_tier(self, user_id: int, season_id: int, tier: int) -> None:
         async with self.db_pool.acquire() as conn:
             await conn.execute(
                 """
@@ -469,9 +461,7 @@ class GamificationRepository(BaseRepository):
                 tier,
             )
 
-    async def get_season_leaderboard(
-        self, season_id: int, limit: int = 10
-    ) -> list[dict]:
+    async def get_season_leaderboard(self, season_id: int, limit: int = 10) -> list[dict]:
         async with self.db_pool.acquire() as conn:
             rows = await conn.fetch(
                 """

@@ -170,9 +170,7 @@ class GamificationManager:
 
     # --- 離脱検知 ---
 
-    async def get_churned_users(
-        self, min_streak: int = 10, inactive_days: int = 2
-    ) -> list[dict]:
+    async def get_churned_users(self, min_streak: int = 10, inactive_days: int = 2) -> list[dict]:
         """ストリーク後に学習が途絶えたユーザーを取得"""
         return await self.repository.get_churned_users(min_streak, inactive_days)
 
@@ -204,10 +202,7 @@ class GamificationManager:
         session_quality = completion_rate
 
         score = int(
-            completion_rate * 35
-            + lock_success * 25
-            + consistency * 25
-            + session_quality * 15
+            completion_rate * 35 + lock_success * 25 + consistency * 25 + session_quality * 15
         )
         score = min(100, max(0, score))
 
@@ -294,9 +289,7 @@ class GamificationManager:
         if not season:
             return None
 
-        progress = await self.repository.upsert_season_progress(
-            user_id, season["id"], xp_amount
-        )
+        progress = await self.repository.upsert_season_progress(user_id, season["id"], xp_amount)
         if not progress:
             return None
 
@@ -342,24 +335,28 @@ class GamificationManager:
         best_hours = []
         for h in hourly[:3]:
             hour = int(h["hour"])
-            best_hours.append({
-                "hour": hour,
-                "label": f"{hour}:00〜{hour + 1}:00",
-                "total_minutes": int(h["total_minutes"]),
-                "sessions": int(h["session_count"]),
-            })
+            best_hours.append(
+                {
+                    "hour": hour,
+                    "label": f"{hour}:00〜{hour + 1}:00",
+                    "total_minutes": int(h["total_minutes"]),
+                    "sessions": int(h["session_count"]),
+                }
+            )
 
         # 最も学習量が多い曜日 TOP3
         daily = sorted(data["daily"], key=lambda x: x["total_minutes"], reverse=True)
         best_days = []
         for d in daily[:3]:
             dow = int(d["dow"])
-            best_days.append({
-                "dow": dow,
-                "label": f"{dow_names[dow]}曜日",
-                "total_minutes": int(d["total_minutes"]),
-                "sessions": int(d["session_count"]),
-            })
+            best_days.append(
+                {
+                    "dow": dow,
+                    "label": f"{dow_names[dow]}曜日",
+                    "total_minutes": int(d["total_minutes"]),
+                    "sessions": int(d["session_count"]),
+                }
+            )
 
         # 推奨ポモドーロ時間
         avg_pomo = data["avg_pomo_minutes"]
