@@ -58,3 +58,7 @@ node_modules/
 .next/
 out/
 nul
+*.tsbuildinfo
+
+# Claude Code
+.claude/
