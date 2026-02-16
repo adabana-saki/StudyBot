@@ -20,7 +20,7 @@ class TeamCog(commands.Cog):
         self.bot = bot
         self.manager = manager
 
-    team_group = app_commands.Group(name="team", description="スタディチーム")
+    team_group = app_commands.Group(name="team", description="スタディチーム", guild_only=True)
 
     @team_group.command(name="create", description="チームを作成")
     @app_commands.describe(
@@ -213,7 +213,7 @@ class TeamCog(commands.Cog):
             if claimed:
                 status = "🎁 受取済"
             elif completed:
-                status = "✅ 完了（/team quest_claim で受取）"
+                status = "✅ 完了（/team quest-claim で受取）"
             else:
                 pct = int(progress / target * 100) if target > 0 else 0
                 filled = int(10 * min(1.0, pct / 100))
@@ -232,7 +232,7 @@ class TeamCog(commands.Cog):
         embed.set_footer(text="チームメンバーの学習が自動で反映されます")
         await interaction.followup.send(embed=embed)
 
-    @team_group.command(name="quest_claim", description="チームクエスト報酬を受け取る")
+    @team_group.command(name="quest-claim", description="チームクエスト報酬を受け取る")
     @app_commands.describe(team_id="チームID", quest_id="クエストID")
     async def team_quest_claim(self, interaction: discord.Interaction, team_id: int, quest_id: int):
         await interaction.response.defer()

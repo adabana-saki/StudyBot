@@ -134,5 +134,9 @@ class InsightsCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    manager = InsightsManager(bot.db_pool)
+    db_pool = getattr(bot, "db_pool", None)
+    if db_pool is None:
+        logger.error("db_pool が未初期化のため InsightsCog をロードできません")
+        return
+    manager = InsightsManager(db_pool)
     await bot.add_cog(InsightsCog(bot, manager))

@@ -225,6 +225,10 @@ class StudyRoomCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
+    db_pool = getattr(bot, "db_pool", None)
+    if db_pool is None:
+        logger.error("db_pool が未初期化のため StudyRoomCog をロードできません")
+        return
     event_publisher = getattr(bot, "event_publisher", None)
-    manager = RoomManager(bot.db_pool, event_publisher)
+    manager = RoomManager(db_pool, event_publisher)
     await bot.add_cog(StudyRoomCog(bot, manager))

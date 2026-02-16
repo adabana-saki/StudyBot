@@ -159,5 +159,9 @@ class BuddyCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    manager = BuddyManager(bot.db_pool)
+    db_pool = getattr(bot, "db_pool", None)
+    if db_pool is None:
+        logger.error("db_pool が未初期化のため BuddyCog をロードできません")
+        return
+    manager = BuddyManager(db_pool)
     await bot.add_cog(BuddyCog(bot, manager))

@@ -53,7 +53,7 @@ class AdminCog(commands.Cog):
         default_permissions=discord.Permissions(administrator=True),
     )
 
-    @admin_group.command(name="grant_xp", description="ユーザーにXPを付与")
+    @admin_group.command(name="grant-xp", description="ユーザーにXPを付与")
     @app_commands.describe(user="XPを付与するユーザー", amount="XP量")
     @is_admin()
     async def grant_xp(
@@ -91,7 +91,7 @@ class AdminCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @admin_group.command(name="grant_coins", description="ユーザーにコインを付与")
+    @admin_group.command(name="grant-coins", description="ユーザーにコインを付与")
     @app_commands.describe(user="コインを付与するユーザー", amount="コイン量")
     @is_admin()
     async def grant_coins(
@@ -129,7 +129,7 @@ class AdminCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @admin_group.command(name="reset_user", description="ユーザーデータをリセット")
+    @admin_group.command(name="reset-user", description="ユーザーデータをリセット")
     @app_commands.describe(user="リセットするユーザー")
     @is_admin()
     async def reset_user(
@@ -148,7 +148,7 @@ class AdminCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed)
 
-    @admin_group.command(name="server_stats", description="サーバー全体の統計を表示")
+    @admin_group.command(name="server-stats", description="サーバー全体の統計を表示")
     @is_admin()
     async def server_stats(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
@@ -201,7 +201,7 @@ class AdminCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed)
 
-    @admin_group.command(name="set_study_channel", description="勉強チャンネルを設定")
+    @admin_group.command(name="set-study-channel", description="勉強チャンネルを設定")
     @app_commands.describe(channel="勉強チャンネル")
     @is_admin()
     async def set_study_channel(
@@ -221,7 +221,7 @@ class AdminCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @admin_group.command(name="set_vc_channel", description="VC追跡チャンネルを設定")
+    @admin_group.command(name="set-vc-channel", description="VC追跡チャンネルを設定")
     @app_commands.describe(channel="VC追跡チャンネル")
     @is_admin()
     async def set_vc_channel(

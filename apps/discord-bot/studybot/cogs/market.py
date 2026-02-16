@@ -187,7 +187,7 @@ class MarketCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @market_group.command(name="stock_info", description="銘柄詳細を表示")
+    @market_group.command(name="stock-info", description="銘柄詳細を表示")
     @app_commands.describe(symbol="銘柄シンボル")
     async def market_stock_info(self, interaction: discord.Interaction, symbol: str):
         await interaction.response.defer()
@@ -374,7 +374,7 @@ class MarketCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @savings_group.command(name="interest_log", description="利息履歴を表示")
+    @savings_group.command(name="interest-log", description="利息履歴を表示")
     async def savings_interest_log(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         history = await self.manager.get_interest_history(interaction.user.id)
@@ -483,7 +483,7 @@ class MarketCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @flea_group.command(name="my_listings", description="自分の出品を管理")
+    @flea_group.command(name="my-listings", description="自分の出品を管理")
     async def flea_my_listings(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         listings = await self.manager.get_my_listings(interaction.user.id)
@@ -529,7 +529,7 @@ class MarketCog(commands.Cog):
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @flea_group.command(name="price_check", description="アイテムの市場価格を確認")
+    @flea_group.command(name="price-check", description="アイテムの市場価格を確認")
     @app_commands.describe(item_id="アイテムID")
     async def flea_price_check(self, interaction: discord.Interaction, item_id: int):
         await interaction.response.defer()

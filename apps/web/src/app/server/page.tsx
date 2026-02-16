@@ -25,7 +25,7 @@ export default function ServerPage() {
 
   useEffect(() => {
     if (!authenticated) return;
-    const savedGuildId = localStorage.getItem("studybot_guild_id") || "";
+    const savedGuildId = localStorage.getItem("guild_id") || "";
     if (savedGuildId) {
       setGuildId(savedGuildId);
     } else {
@@ -79,7 +79,7 @@ export default function ServerPage() {
               <Button
                 onClick={() => {
                   if (guildId) {
-                    localStorage.setItem("studybot_guild_id", guildId);
+                    localStorage.setItem("guild_id", guildId);
                     fetchStats();
                   }
                 }}
@@ -211,7 +211,7 @@ export default function ServerPage() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                localStorage.removeItem("studybot_guild_id");
+                localStorage.removeItem("guild_id");
                 setGuildId("");
                 setStats(null);
               }}

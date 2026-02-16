@@ -29,7 +29,7 @@ class BattleCog(commands.Cog):
     async def cog_unload(self) -> None:
         self.battle_check.cancel()
 
-    battle_group = app_commands.Group(name="battle", description="チームバトル")
+    battle_group = app_commands.Group(name="battle", description="チームバトル", guild_only=True)
 
     @battle_group.command(name="challenge", description="チームバトルを開始")
     @app_commands.describe(
@@ -190,5 +190,9 @@ class BattleCog(commands.Cog):
 
 
 async def setup(bot: commands.Bot) -> None:
-    manager = BattleManager(bot.db_pool)
+    db_pool = getattr(bot, "db_pool", None)
+    if db_pool is None:
+        logger.error("db_pool が未初期化のため BattleCog をロードできません")
+        return
+    manager = BattleManager(db_pool)
     await bot.add_cog(BattleCog(bot, manager))

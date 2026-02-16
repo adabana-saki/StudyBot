@@ -35,8 +35,9 @@ function LeaderboardContent() {
     searchParams.get("period") || "all_time"
   );
 
-  // Use guild_id from query param or a placeholder
-  const guildId = searchParams.get("guild_id") || "default";
+  const guildId = searchParams.get("guild_id")
+    || (typeof window !== "undefined" ? localStorage.getItem("guild_id") : null)
+    || "0";
 
   useEffect(() => {
     if (!isAuthenticated()) {

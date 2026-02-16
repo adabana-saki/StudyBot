@@ -18,6 +18,8 @@ import {
 } from "@/lib/api";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import PageHeader from "@/components/PageHeader";
+import BlockOverlay from "@/components/BlockOverlay";
+import ChallengeModal from "@/components/ChallengeModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,10 +152,15 @@ export default function FocusPage() {
   const [penaltyDialogOpen, setPenaltyDialogOpen] = useState(false);
   const [codeRequestSent, setCodeRequestSent] = useState(false);
 
+  // Challenge state
+  const [challengeModalOpen, setChallengeModalOpen] = useState(false);
+  const [dismissedUntil, setDismissedUntil] = useState<Date | null>(null);
+
   // Start form state
   const [startDuration, setStartDuration] = useState("60");
   const [startLevel, setStartLevel] = useState("1");
   const [startBet, setStartBet] = useState("0");
+  const [startChallengeMode, setStartChallengeMode] = useState("none");
 
   // Unlock code input
   const [unlockCode, setUnlockCode] = useState("");
@@ -165,6 +172,9 @@ export default function FocusPage() {
     default_coin_bet: 0,
     block_categories: [],
     custom_blocked_urls: [],
+    challenge_mode: "none",
+    challenge_difficulty: 1,
+    block_message: "",
   });
 
   // Timer
@@ -187,6 +197,7 @@ export default function FocusPage() {
         setStartDuration(String(settingsData.default_duration));
         setStartLevel(String(settingsData.default_unlock_level));
         setStartBet(String(settingsData.default_coin_bet));
+        setStartChallengeMode(settingsData.challenge_mode || "none");
       }
       if (sessionData) {
         setRemaining(sessionData.remaining_seconds);
@@ -248,6 +259,7 @@ export default function FocusPage() {
         duration: parseInt(startDuration),
         unlock_level: parseInt(startLevel),
         coins_bet: parseInt(startBet) || 0,
+        challenge_mode: startChallengeMode,
       });
       setSession(result);
       setRemaining(result.remaining_seconds);
@@ -475,6 +487,67 @@ export default function FocusPage() {
                     })}
                   </div>
                 </div>
+                <div>
+                  <Label>チャレンジモード</Label>
+                  <Select
+                    value={settingsForm.challenge_mode || "none"}
+                    onValueChange={(v) =>
+                      setSettingsForm({
+                        ...settingsForm,
+                        challenge_mode: v,
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">なし</SelectItem>
+                      <SelectItem value="math">計算チャレンジ</SelectItem>
+                      <SelectItem value="typing">タイピングチャレンジ</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>チャレンジ難易度</Label>
+                  <Select
+                    value={String(settingsForm.challenge_difficulty || 1)}
+                    onValueChange={(v) =>
+                      setSettingsForm({
+                        ...settingsForm,
+                        challenge_difficulty: parseInt(v),
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5].map((d) => (
+                        <SelectItem key={d} value={String(d)}>
+                          Lv{d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>カスタムブロックメッセージ</Label>
+                  <Input
+                    value={settingsForm.block_message || ""}
+                    onChange={(e) =>
+                      setSettingsForm({
+                        ...settingsForm,
+                        block_message: e.target.value,
+                      })
+                    }
+                    placeholder="集中して頑張りましょう！"
+                    maxLength={200}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    空欄の場合はランダムメッセージが表示されます
+                  </p>
+                </div>
                 <Button
                   onClick={handleSaveSettings}
                   disabled={actionLoading}
@@ -498,6 +571,33 @@ export default function FocusPage() {
             閉じる
           </button>
         </div>
+      )}
+
+      {/* Block Overlay */}
+      {session && session.challenge_mode !== "none" && (
+        <BlockOverlay
+          remaining={remaining}
+          totalSeconds={totalSeconds}
+          blockCategories={session.block_categories || []}
+          blockMessage={session.block_message || ""}
+          challengeMode={session.challenge_mode}
+          onChallengeRequest={() => setChallengeModalOpen(true)}
+          dismissedUntil={dismissedUntil}
+        />
+      )}
+
+      {/* Challenge Modal */}
+      {session && (
+        <ChallengeModal
+          open={challengeModalOpen}
+          onClose={() => setChallengeModalOpen(false)}
+          challengeMode={session.challenge_mode || "none"}
+          difficulty={settings?.challenge_difficulty || 1}
+          onSuccess={(until) => {
+            setDismissedUntil(until);
+            setChallengeModalOpen(false);
+          }}
+        />
       )}
 
       {/* Active Session Panel */}
@@ -718,7 +818,7 @@ export default function FocusPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label>時間</Label>
                 <Select value={startDuration} onValueChange={setStartDuration}>
@@ -764,6 +864,22 @@ export default function FocusPage() {
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   0〜100（Lv2以上）
+                </p>
+              </div>
+              <div>
+                <Label>チャレンジモード</Label>
+                <Select value={startChallengeMode} onValueChange={setStartChallengeMode}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">なし</SelectItem>
+                    <SelectItem value="math">計算チャレンジ</SelectItem>
+                    <SelectItem value="typing">タイピングチャレンジ</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  解除時にチャレンジが必要
                 </p>
               </div>
             </div>

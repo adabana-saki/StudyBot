@@ -98,6 +98,7 @@ class LeaderboardCog(commands.Cog):
         self.daily_leaderboard_post.cancel()
 
     @app_commands.command(name="leaderboard", description="ランキングを表示")
+    @app_commands.guild_only()
     @app_commands.describe(
         category="ランキングの種類",
         period="集計期間",

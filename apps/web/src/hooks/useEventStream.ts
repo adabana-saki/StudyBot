@@ -39,12 +39,15 @@ export function useEventStream({ guildId, enabled = true }: UseEventStreamOption
   }, []);
 
   useEffect(() => {
-    if (!enabled || !guildId) return;
+    if (!enabled || !guildId || guildId === "0") return;
 
     const token = getToken();
     if (!token) return;
 
+    let abandoned = false;
+
     function connect() {
+      if (abandoned) return;
       const url = `${API_URL}/api/events/stream?guild_id=${guildId}&token=${token}`;
       const es = new EventSource(url);
       eventSourceRef.current = es;
@@ -58,6 +61,9 @@ export function useEventStream({ guildId, enabled = true }: UseEventStreamOption
         setIsConnected(false);
         es.close();
         eventSourceRef.current = null;
+
+        // EventSourceは401でもonerrorを呼ぶ。無限再接続を防ぐ
+        if (abandoned) return;
 
         // Exponential backoff reconnect
         reconnectTimeoutRef.current = setTimeout(() => {
@@ -103,6 +109,7 @@ export function useEventStream({ guildId, enabled = true }: UseEventStreamOption
     connect();
 
     return () => {
+      abandoned = true;
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;

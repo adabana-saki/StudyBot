@@ -30,6 +30,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.rate_limit = rate_limit
         self.window = window
         self._requests: dict[str, list[float]] = defaultdict(list)
+        from api.config import settings
+        self._allowed_origins = {settings.WEB_BASE_URL, "http://localhost:3000"}
 
     def _is_trusted_proxy(self, ip: str) -> bool:
         """信頼するプロキシかどうか判定"""
@@ -61,8 +63,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self._requests[key] = [t for t in self._requests[key] if t > cutoff]
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # ヘルスチェックはスキップ
-        if request.url.path in ("/health", "/"):
+        # ヘルスチェック・OPTIONSプリフライトはスキップ
+        if request.url.path in ("/health", "/") or request.method == "OPTIONS":
             return await call_next(request)
 
         key = self._get_client_key(request)
@@ -72,12 +74,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         if len(self._requests[key]) >= self.rate_limit:
             logger.warning(f"レート制限: {key}")
-            return Response(
+            response = Response(
                 content='{"detail":"リクエストが多すぎます。しばらく待ってからお試しください。"}',
                 status_code=429,
                 media_type="application/json",
-                headers={"Retry-After": str(self.window)},
             )
+            response.headers["Retry-After"] = str(self.window)
+            response.headers["X-RateLimit-Limit"] = str(self.rate_limit)
+            response.headers["X-RateLimit-Remaining"] = "0"
+            # CORSヘッダーを付与（CORSMiddlewareがResponseオブジェクトを処理できない場合の保険）
+            origin = request.headers.get("origin", "")
+            if origin in self._allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+                response.headers["Access-Control-Allow-Credentials"] = "true"
+                response.headers["Vary"] = "Origin"
+            return response
 
         self._requests[key].append(now)
         response = await call_next(request)

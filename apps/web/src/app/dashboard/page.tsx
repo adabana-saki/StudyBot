@@ -40,14 +40,19 @@ export default function DashboardPage() {
 
     async function fetchData() {
       try {
-        const [profileData, statsData, dailyData] = await Promise.all([
+        const [profileRes, statsRes, dailyRes] = await Promise.allSettled([
           getProfile(),
           getStudyStats("weekly"),
           getDailyStudy(14),
         ]);
-        setProfile(profileData);
-        setStudyStats(statsData);
-        setDailyStudy(dailyData);
+        if (profileRes.status === "fulfilled") setProfile(profileRes.value);
+        if (statsRes.status === "fulfilled") setStudyStats(statsRes.value);
+        if (dailyRes.status === "fulfilled") setDailyStudy(dailyRes.value);
+        // 全て失敗した場合のみエラー表示
+        if (profileRes.status === "rejected" && statsRes.status === "rejected" && dailyRes.status === "rejected") {
+          const err = profileRes.reason;
+          setError(err instanceof Error ? err.message : "データの取得に失敗しました");
+        }
         const sessionsData = await getActiveSessions().catch(() => []);
         setActiveSessions(sessionsData);
       } catch (err) {
@@ -99,24 +104,26 @@ export default function DashboardPage() {
       )}
 
       {/* Profile Summary */}
-      {profile && (
+      {profile && (() => {
+        const name = profile.display_name || profile.username || "User";
+        return (
         <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-4">
               {profile.avatar_url ? (
                 <img
                   src={profile.avatar_url}
-                  alt={profile.display_name}
+                  alt={name}
                   className="w-16 h-16 rounded-full border-2 border-primary"
                 />
               ) : (
                 <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
-                  {profile.display_name.charAt(0)}
+                  {name.charAt(0)}
                 </div>
               )}
               <div>
                 <h2 className="text-xl font-bold">
-                  {profile.display_name}
+                  {name}
                 </h2>
                 <div className="flex items-center space-x-3 mt-1">
                   <Badge>Lv.{profile.level}</Badge>
@@ -138,7 +145,8 @@ export default function DashboardPage() {
             </div>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

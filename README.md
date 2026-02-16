@@ -62,7 +62,7 @@ PostgreSQL (永続化層)            ← asyncpg 接続プール
 | Cache | Redis 7 |
 | AI | OpenAI API (gpt-4o-mini / gpt-4o) |
 | CI/CD | GitHub Actions, Docker multi-stage builds |
-| テスト | pytest, pytest-asyncio (445+ tests) |
+| テスト | pytest, pytest-asyncio (529+ tests) |
 
 ## クイックスタート
 
@@ -160,8 +160,8 @@ scripts/test.bat        # Windows
 ./scripts/test.sh       # macOS/Linux
 
 # 個別実行
-cd apps/discord-bot && pytest -x -q   # Bot (323 tests)
-cd apps/api && pytest -x -q           # API (122 tests)
+cd apps/discord-bot && pytest -x -q   # Bot (370 tests)
+cd apps/api && pytest -x -q           # API (159 tests)
 ```
 
 ### コード品質

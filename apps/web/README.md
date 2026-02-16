@@ -77,7 +77,7 @@ npm run dev
 ## コンポーネント
 
 ### レイアウト
-- `Navbar` - ナビゲーションバー
+- `Sidebar` - サイドバーナビゲーション
 - `PageHeader` - ページヘッダー
 - `Modal` - モーダルダイアログ
 - `ErrorBanner` - エラー表示
@@ -110,6 +110,8 @@ npm run dev
 - `RoomCard` - ルームカード (テーマ・人数・目標)
 - `RoomMemberGrid` - ルームメンバーグリッド
 - `RoomTimer` - ルーム内フォーカスタイマー
+- `BlockOverlay` - フォーカスロック中の全画面オーバーレイ (カウントダウン・モチベーションメッセージ)
+- `ChallengeModal` - チャレンジ解除モーダル (計算/タイピング)
 
 ### UIコンポーネント (shadcn/ui)
 `src/components/ui/` に Button, Card, Dialog, Table, Tabs, Toast 等の基本UIを配置。
@@ -146,7 +148,7 @@ src/
 │   ├── rooms/        # スタディルーム
 │   ├── server/analytics/ # 分析ダッシュボード
 │   └── ...           # その他ページ
-├── components/       # コンポーネント (49個)
+├── components/       # コンポーネント (51個)
 │   ├── ui/           # shadcn/ui 基本コンポーネント
 │   └── *.tsx         # 機能コンポーネント
 ├── hooks/            # カスタムフック (3個)

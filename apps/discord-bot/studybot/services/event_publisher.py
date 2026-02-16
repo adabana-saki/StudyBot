@@ -33,7 +33,10 @@ class EventPublisher:
             "data": data,
             "timestamp": datetime.now(UTC).isoformat(),
         }
-        await self.redis.publish(EVENTS_CHANNEL, payload)
+        try:
+            await self.redis.publish(EVENTS_CHANNEL, payload)
+        except Exception:
+            logger.warning("Redis publish failed for %s", event_type, exc_info=True)
 
         # activity_events テーブルに永続化
         if self.activity_repo:
@@ -398,14 +401,17 @@ class EventPublisher:
             "action": action,
             "topic": topic,
         }
-        await self.redis.publish(
-            SESSIONS_CHANNEL,
-            {
-                "type": "session_sync",
-                "data": payload,
-                "timestamp": datetime.now(UTC).isoformat(),
-            },
-        )
+        try:
+            await self.redis.publish(
+                SESSIONS_CHANNEL,
+                {
+                    "type": "session_sync",
+                    "data": payload,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                },
+            )
+        except Exception:
+            logger.warning("Redis publish failed for session_sync", exc_info=True)
 
     async def emit_insights_ready(
         self,

@@ -126,8 +126,10 @@ uvicorn main:app --reload --port 8000
 | POST | `/api/focus/penalty-unlock` | ペナルティ解除 (Lv5) | Yes |
 | POST | `/api/focus/request-code` | 解除コードリクエスト | Yes |
 | GET | `/api/focus/settings` | ロック設定取得 | Yes |
-| PUT | `/api/focus/settings` | ロック設定更新 | Yes |
+| PUT | `/api/focus/settings` | ロック設定更新 (チャレンジモード・難易度含む) | Yes |
 | GET | `/api/focus/history` | セッション履歴 | Yes |
+| POST | `/api/focus/challenge/generate` | チャレンジ問題生成 (math/typing) | Yes |
+| POST | `/api/focus/challenge/verify` | チャレンジ回答検証 | Yes |
 
 ### 通知
 
@@ -313,7 +315,7 @@ GET /api/todos?offset=0&limit=50
 ## テスト
 
 ```bash
-# 全テスト実行 (122件)
+# 全テスト実行 (159件)
 pytest -x -q
 
 # カバレッジ付き

@@ -99,6 +99,8 @@ class StudyBot(commands.Bot):
             ("studybot.cogs.study_room", False),
             # Phase 9
             ("studybot.cogs.market", False),
+            # Utility
+            ("studybot.cogs.dashboard", False),
         ]
 
         for cog, critical in cog_list:
@@ -111,9 +113,30 @@ class StudyBot(commands.Bot):
                     sys.exit(1)
                 logger.error(f"Cog読み込み失敗 {cog}: {e}")
 
-        # スラッシュコマンド同期
-        await self.tree.sync()
-        logger.info("スラッシュコマンド同期完了")
+        # グローバルコマンドエラーハンドラ
+        @self.tree.error
+        async def on_app_command_error(
+            interaction: discord.Interaction, error: discord.app_commands.AppCommandError
+        ) -> None:
+            logger.error("Unhandled command error: %s", error, exc_info=error)
+            msg = "エラーが発生しました。しばらくしてからもう一度お試しください。"
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send(msg, ephemeral=True)
+                else:
+                    await interaction.response.send_message(msg, ephemeral=True)
+            except Exception:
+                logger.debug("エラーメッセージ送信失敗", exc_info=True)
+
+        # スラッシュコマンド同期（ギルド限定 or グローバル）
+        if settings.GUILD_ID:
+            guild = discord.Object(id=settings.GUILD_ID)
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            logger.info("ギルド限定スラッシュコマンド同期完了 (guild=%d)", settings.GUILD_ID)
+        else:
+            await self.tree.sync()
+            logger.info("グローバルスラッシュコマンド同期完了")
 
     async def on_ready(self) -> None:
         """Bot接続完了"""

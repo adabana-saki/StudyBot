@@ -66,6 +66,7 @@ services:
       DB_POOL_MIN_SIZE: 2
       DB_POOL_MAX_SIZE: 10
       REDIS_URL: redis://redis:6379/0
+      GUILD_ID: ${GUILD_ID:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,10 +119,14 @@ services:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
     container_name: studybot-web
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: http://api:8000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID:-}
     ports:
       - "3000:3000"
     depends_on:

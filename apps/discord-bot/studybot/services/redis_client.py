@@ -26,43 +26,79 @@ class RedisClient:
             logger.info("Redis接続を閉じました")
 
     async def publish(self, channel: str, data: dict) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.publish(channel, json.dumps(data, default=str))
+        except Exception:
+            logger.warning("Redis publish failed for channel=%s", channel, exc_info=True)
 
     async def get(self, key: str) -> str | None:
-        if self.redis:
+        if not self.redis:
+            return None
+        try:
             return await self.redis.get(key)
-        return None
+        except Exception:
+            logger.warning("Redis get failed for key=%s", key, exc_info=True)
+            return None
 
     async def set(self, key: str, value: str, ex: int | None = None) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.set(key, value, ex=ex)
+        except Exception:
+            logger.warning("Redis set failed for key=%s", key, exc_info=True)
 
     async def delete(self, key: str) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.delete(key)
+        except Exception:
+            logger.warning("Redis delete failed for key=%s", key, exc_info=True)
 
     async def zadd(self, key: str, mapping: dict, nx: bool = False) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.zadd(key, mapping, nx=nx)
+        except Exception:
+            logger.warning("Redis zadd failed for key=%s", key, exc_info=True)
 
     async def zrem(self, key: str, *members: str) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.zrem(key, *members)
+        except Exception:
+            logger.warning("Redis zrem failed for key=%s", key, exc_info=True)
 
     async def zrange(
         self, key: str, start: int = 0, end: int = -1, withscores: bool = False
     ) -> list:
-        if self.redis:
+        if not self.redis:
+            return []
+        try:
             return await self.redis.zrange(key, start, end, withscores=withscores)
-        return []
+        except Exception:
+            logger.warning("Redis zrange failed for key=%s", key, exc_info=True)
+            return []
 
     async def expire(self, key: str, seconds: int) -> None:
-        if self.redis:
+        if not self.redis:
+            return
+        try:
             await self.redis.expire(key, seconds)
+        except Exception:
+            logger.warning("Redis expire failed for key=%s", key, exc_info=True)
 
     async def keys(self, pattern: str) -> list[str]:
         """パターンに一致するキーを返す"""
-        if self.redis:
+        if not self.redis:
+            return []
+        try:
             return await self.redis.keys(pattern)
-        return []
+        except Exception:
+            logger.warning("Redis keys failed for pattern=%s", pattern, exc_info=True)
+            return []

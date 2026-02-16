@@ -483,3 +483,160 @@ async def test_on_study_completed_wrong_level(nudge_manager):
 
     # クリーンアップ
     manager.active_locks.pop(123, None)
+
+
+# === チャレンジ生成・検証テスト ===
+
+
+@pytest.mark.asyncio
+async def test_generate_math_challenge(nudge_manager):
+    """計算チャレンジ生成テスト"""
+    manager, conn = nudge_manager
+
+    problems = manager.generate_math_challenge(difficulty=1)
+    assert len(problems) == 3  # difficulty 1 = 3 problems
+    for p in problems:
+        assert "expression" in p
+        assert "answer" in p
+        assert isinstance(p["answer"], int)
+
+
+@pytest.mark.asyncio
+async def test_generate_math_challenge_high_difficulty(nudge_manager):
+    """高難易度の計算チャレンジ生成"""
+    manager, conn = nudge_manager
+
+    problems = manager.generate_math_challenge(difficulty=5)
+    assert len(problems) == 8  # difficulty 5 = 8 problems
+
+
+@pytest.mark.asyncio
+async def test_verify_math_challenge_correct(nudge_manager):
+    """計算チャレンジの正解検証"""
+    manager, conn = nudge_manager
+
+    problems = [
+        {"expression": "5 + 3", "answer": 8},
+        {"expression": "10 - 4", "answer": 6},
+        {"expression": "3 * 7", "answer": 21},
+    ]
+    answers = [8, 6, 21]
+
+    result = manager.verify_math_challenge(problems, answers)
+    assert result["correct"] is True
+    assert result["score"] == 3
+    assert result["total"] == 3
+
+
+@pytest.mark.asyncio
+async def test_verify_math_challenge_wrong(nudge_manager):
+    """計算チャレンジの不正解検証"""
+    manager, conn = nudge_manager
+
+    problems = [
+        {"expression": "5 + 3", "answer": 8},
+        {"expression": "10 - 4", "answer": 6},
+    ]
+    answers = [8, 5]  # 2問目が不正解
+
+    result = manager.verify_math_challenge(problems, answers)
+    assert result["correct"] is False
+    assert result["score"] == 1
+    assert result["total"] == 2
+
+
+@pytest.mark.asyncio
+async def test_verify_math_challenge_wrong_count(nudge_manager):
+    """回答数が問題数と一致しない場合"""
+    manager, conn = nudge_manager
+
+    problems = [{"expression": "5 + 3", "answer": 8}]
+    answers = [8, 6]  # 余分な回答
+
+    result = manager.verify_math_challenge(problems, answers)
+    assert result["correct"] is False
+
+
+@pytest.mark.asyncio
+async def test_generate_typing_challenge(nudge_manager):
+    """タイピングチャレンジ生成テスト"""
+    manager, conn = nudge_manager
+
+    phrases = manager.generate_typing_challenge(difficulty=2)
+    assert len(phrases) == 2
+    for p in phrases:
+        assert isinstance(p, str)
+        assert len(p) > 0
+
+
+@pytest.mark.asyncio
+async def test_verify_typing_challenge_correct(nudge_manager):
+    """タイピングチャレンジの正解検証"""
+    manager, conn = nudge_manager
+
+    originals = ["集中して学習に取り組みましょう"]
+    typed = ["集中して学習に取り組みましょう"]
+
+    result = manager.verify_typing_challenge(originals, typed)
+    assert result["correct"] is True
+    assert result["accuracy"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_verify_typing_challenge_wrong(nudge_manager):
+    """タイピングチャレンジの不正解検証"""
+    manager, conn = nudge_manager
+
+    originals = ["集中して学習に取り組みましょう", "今やるべきことに全力を注ごう"]
+    typed = ["集中して学習に取り組みましょう", "間違ったテキスト"]
+
+    result = manager.verify_typing_challenge(originals, typed)
+    assert result["correct"] is False
+    assert result["accuracy"] == 50.0
+    assert result["matched"] == 1
+
+
+@pytest.mark.asyncio
+async def test_start_lock_with_challenge_mode(nudge_manager):
+    """チャレンジモード付きロック作成テスト"""
+    manager, conn = nudge_manager
+
+    conn.fetchrow.return_value = None
+    conn.execute.return_value = None
+
+    lock_row = {
+        "id": 10,
+        "user_id": 123,
+        "lock_type": "lock",
+        "duration_minutes": 30,
+        "coins_bet": 0,
+        "unlock_level": 1,
+        "challenge_mode": "math",
+        "state": "active",
+        "started_at": datetime.now(UTC),
+        "ended_at": None,
+    }
+    conn.fetchrow.side_effect = [None, lock_row]
+
+    result = await manager.start_lock(123, "Test", 30, challenge_mode="math")
+
+    assert "error" not in result
+    assert result["challenge_mode"] == "math"
+    assert manager.active_locks[123]["challenge_mode"] == "math"
+
+    # クリーンアップ
+    manager.active_locks.pop(123, None)
+
+
+@pytest.mark.asyncio
+async def test_math_challenge_division_exact(nudge_manager):
+    """整数除算が割り切れることを確認"""
+    manager, conn = nudge_manager
+
+    # difficulty 4+ includes // operator
+    problems = manager.generate_math_challenge(difficulty=4)
+    for p in problems:
+        if "//" in p["expression"]:
+            parts = p["expression"].split(" // ")
+            a, b = int(parts[0]), int(parts[1])
+            assert a % b == 0, f"{a} is not divisible by {b}"

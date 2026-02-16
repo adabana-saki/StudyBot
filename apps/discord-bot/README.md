@@ -43,6 +43,7 @@ python main.py
 | `DB_POOL_MIN_SIZE` | No | `2` | DB接続プール最小サイズ |
 | `DB_POOL_MAX_SIZE` | No | `10` | DB接続プール最大サイズ |
 | `REDIS_URL` | No | `redis://localhost:6379/0` | Redis接続URL |
+| `GUILD_ID` | No | - | ギルド限定コマンド同期 (即時反映) |
 
 ## コマンド一覧
 
@@ -93,7 +94,7 @@ python main.py
 | コマンド | 説明 | パラメータ |
 |----------|------|-----------|
 | `/profile` | プロフィール表示 | `user?` |
-| `/profile_edit` | プロフィール編集 (モーダル) | - |
+| `/profile-edit` | プロフィール編集 (モーダル) | - |
 | `/xp` | XP・レベル表示 | - |
 | `/streak` | 連続学習の詳細 | - |
 | `/leaderboard` | ランキング表示 | `category?` (study/xp/tasks), `period?` |
@@ -211,12 +212,13 @@ python main.py
 | `/nudge toggle` | 通知ON/OFF | `enabled` |
 | `/nudge test` | テスト通知 | - |
 | `/nudge status` | 設定表示 | - |
-| `/nudge lock` | フォーカスロック開始 | `duration`, `coins_bet?`, `unlock_level?` (1-5) |
+| `/nudge lock` | フォーカスロック開始 | `duration`, `coins_bet?`, `unlock_level?` (1-5), `challenge_mode?` (none/math/typing) |
 | `/nudge shield` | フォーカスシールド開始 | `duration` |
-| `/nudge break_lock` | ロック解除 | - |
-| `/nudge lock_status` | ロックステータス | - |
+| `/nudge break-lock` | ロック解除 | - |
+| `/nudge lock-status` | ロックステータス | - |
 | `/nudge code` | 解除コード入力 | `code` |
-| `/nudge settings` | デフォルト設定変更 | `unlock_level?`, `duration?`, `coin_bet?` |
+| `/nudge challenge-unlock` | チャレンジで一時解除 | - |
+| `/nudge settings` | デフォルト設定変更 | `unlock_level?`, `duration?`, `coin_bet?`, `challenge_mode?`, `challenge_difficulty?` (1-5) |
 
 ### ⚔️ チームバトル
 
@@ -244,12 +246,12 @@ python main.py
 #### 管理者コマンド (`/admin`) ※管理者権限必要
 | コマンド | 説明 | パラメータ |
 |----------|------|-----------|
-| `/admin grant_xp` | XP付与 | `user`, `amount` |
-| `/admin grant_coins` | コイン付与 | `user`, `amount` |
-| `/admin reset_user` | ユーザーリセット | `user` |
-| `/admin server_stats` | サーバー統計 | - |
-| `/admin set_study_channel` | 勉強チャンネル設定 | `channel` |
-| `/admin set_vc_channel` | VC追跡チャンネル設定 | `channel` |
+| `/admin grant-xp` | XP付与 | `user`, `amount` |
+| `/admin grant-coins` | コイン付与 | `user`, `amount` |
+| `/admin reset-user` | ユーザーリセット | `user` |
+| `/admin server-stats` | サーバー統計 | - |
+| `/admin set-study-channel` | 勉強チャンネル設定 | `channel` |
+| `/admin set-vc-channel` | VC追跡チャンネル設定 | `channel` |
 
 | `/help` | コマンドヘルプ表示 | - |
 
@@ -268,7 +270,7 @@ python main.py
 ## テスト
 
 ```bash
-# 全テスト実行 (323件)
+# 全テスト実行 (370件)
 pytest -x -q
 
 # カバレッジ付き

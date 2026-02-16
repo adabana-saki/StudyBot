@@ -884,6 +884,20 @@ class DatabaseManager:
                     left_at TIMESTAMPTZ DEFAULT NOW(),
                     duration_minutes INT DEFAULT 0
                 );
+
+                -- Phase 10: チャレンジ試行ログ
+                CREATE TABLE IF NOT EXISTS challenge_attempts (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    session_id INT NOT NULL
+                        REFERENCES phone_lock_sessions(id) ON DELETE CASCADE,
+                    challenge_type VARCHAR(20) NOT NULL,
+                    difficulty INT DEFAULT 1,
+                    problems JSONB DEFAULT '[]',
+                    answers JSONB DEFAULT '[]',
+                    correct BOOLEAN DEFAULT FALSE,
+                    attempted_at TIMESTAMPTZ DEFAULT NOW()
+                );
                 """
             )
 
@@ -1056,6 +1070,10 @@ class DatabaseManager:
                     ON room_members(room_id);
                 CREATE INDEX IF NOT EXISTS idx_room_members_user
                     ON room_members(user_id);
+
+                -- Phase 10: Challenge attempts indexes
+                CREATE INDEX IF NOT EXISTS idx_challenge_attempts_user
+                    ON challenge_attempts(user_id, session_id);
                 """
             )
 
@@ -1176,6 +1194,37 @@ class DatabaseManager:
                     ('ART', '芸術株', '芸術', '芸術の学習量に連動', '🎨', '芸術'),
                     ('ECON', '経済株', '経済', '経済の学習量に連動', '💰', '社会')
                 ON CONFLICT (symbol) DO NOTHING;
+                """
+            )
+
+            # Phase 10: user_lock_settings カラム追加 (チャレンジモード)
+            for col, default in [
+                ("challenge_mode", "'none'"),
+                ("challenge_difficulty", "1"),
+                ("block_message", "''"),
+            ]:
+                await conn.execute(
+                    f"""
+                    DO $$
+                    BEGIN
+                        ALTER TABLE user_lock_settings
+                            ADD COLUMN {col} VARCHAR(100) DEFAULT {default};
+                    EXCEPTION
+                        WHEN duplicate_column THEN NULL;
+                    END $$;
+                    """
+                )
+
+            # Phase 10: phone_lock_sessions カラム追加 (チャレンジモード)
+            await conn.execute(
+                """
+                DO $$
+                BEGIN
+                    ALTER TABLE phone_lock_sessions
+                        ADD COLUMN challenge_mode VARCHAR(20) DEFAULT 'none';
+                EXCEPTION
+                    WHEN duplicate_column THEN NULL;
+                END $$;
                 """
             )
 

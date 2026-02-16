@@ -3,6 +3,7 @@
 import asyncio
 import ipaddress
 import logging
+import random
 import socket
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlparse
@@ -10,9 +11,11 @@ from urllib.parse import urlparse
 import aiohttp
 
 from studybot.config.constants import (
+    CHALLENGE_DIFFICULTY,
     COIN_REWARDS,
     NUDGE_LEVELS,
     PENALTY_UNLOCK_RATE,
+    TYPING_PHRASES,
     UNLOCK_LEVELS,
 )
 from studybot.repositories.lock_settings_repository import LockSettingsRepository
@@ -105,6 +108,7 @@ class NudgeManager:
         duration_minutes: int,
         coins_bet: int = 0,
         unlock_level: int = 1,
+        challenge_mode: str = "none",
     ) -> dict:
         """フォーカスロックを開始"""
         async with self._lock:
@@ -144,6 +148,7 @@ class NudgeManager:
                 "coins_bet": coins_bet,
                 "lock_type": "lock",
                 "unlock_level": unlock_level,
+                "challenge_mode": challenge_mode,
             }
 
             result = {
@@ -152,6 +157,7 @@ class NudgeManager:
                 "coins_bet": coins_bet,
                 "end_time": end_time,
                 "unlock_level": unlock_level,
+                "challenge_mode": challenge_mode,
             }
 
             # レベル2: 開始時に確認コードをDM送信
@@ -382,6 +388,56 @@ class NudgeManager:
                 "coins_lost": coins_bet,
                 "penalty_rate": PENALTY_UNLOCK_RATE,
             }
+
+    # --- チャレンジ生成・検証 ---
+
+    def generate_math_challenge(self, difficulty: int = 1) -> list[dict]:
+        """計算チャレンジの問題リストを生成"""
+        config = CHALLENGE_DIFFICULTY.get(difficulty, CHALLENGE_DIFFICULTY[1])
+        problems = []
+        for _ in range(config["problems"]):
+            op = random.choice(config["ops"])
+            a = random.randint(10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1)
+            b = random.randint(10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1)
+            # 整数除算の場合、割り切れるようにする
+            if op == "//":
+                b = max(b, 2)
+                a = a * b  # a が b で割り切れるようにする
+            expr = f"{a} {op} {b}"
+            answer = a + b if op == "+" else a - b if op == "-" else a * b if op == "*" else a // b
+            problems.append({"expression": expr, "answer": answer})
+        return problems
+
+    def generate_typing_challenge(self, difficulty: int = 1) -> list[str]:
+        """タイピングチャレンジのフレーズを選出"""
+        count = min(difficulty, len(TYPING_PHRASES))
+        return random.sample(TYPING_PHRASES, count)
+
+    def verify_math_challenge(self, problems: list[dict], answers: list[int]) -> dict:
+        """計算チャレンジの回答を検証（全問正解で成功）"""
+        if len(answers) != len(problems):
+            return {"correct": False, "score": 0, "total": len(problems)}
+        correct_count = sum(
+            1 for p, a in zip(problems, answers) if p["answer"] == a
+        )
+        return {
+            "correct": correct_count == len(problems),
+            "score": correct_count,
+            "total": len(problems),
+        }
+
+    def verify_typing_challenge(self, originals: list[str], typed: list[str]) -> dict:
+        """タイピングチャレンジの回答を検証（完全一致判定+精度）"""
+        if len(typed) != len(originals):
+            return {"correct": False, "accuracy": 0.0, "total": len(originals)}
+        matches = sum(1 for o, t in zip(originals, typed) if o == t)
+        accuracy = matches / len(originals) if originals else 0.0
+        return {
+            "correct": matches == len(originals),
+            "accuracy": round(accuracy * 100, 1),
+            "total": len(originals),
+            "matched": matches,
+        }
 
     async def on_study_completed(self, user_id: int) -> str | None:
         """学習完了時のフック（レベル4用）。コードを返すかNone。"""

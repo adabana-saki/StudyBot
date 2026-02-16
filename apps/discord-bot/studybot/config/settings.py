@@ -14,6 +14,7 @@ class Settings:
         # Discord
         self.DISCORD_TOKEN: str = os.getenv("DISCORD_TOKEN", "")
         self.BOT_OWNER_ID: int | None = int(os.getenv("BOT_OWNER_ID", "0")) or None
+        self.GUILD_ID: int | None = int(os.getenv("GUILD_ID", "0")) or None
 
         # Database
         self.DATABASE_URL: str = os.getenv("DATABASE_URL", "")

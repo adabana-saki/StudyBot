@@ -65,7 +65,9 @@ export default function LeaderboardTable({ entries }: LeaderboardTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.map((entry) => (
+          {entries.map((entry) => {
+            const displayName = entry.display_name || entry.username || "???";
+            return (
             <TableRow key={entry.user_id}>
               <TableCell className={cn("text-sm", getRankStyle(entry.rank))}>
                 {getRankIcon(entry.rank)}
@@ -75,19 +77,21 @@ export default function LeaderboardTable({ entries }: LeaderboardTableProps) {
                   {entry.avatar_url ? (
                     <img
                       src={entry.avatar_url}
-                      alt={entry.display_name}
+                      alt={displayName}
                       className="w-8 h-8 rounded-full"
                     />
                   ) : (
                     <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-                      {entry.display_name.charAt(0)}
+                      {displayName.charAt(0)}
                     </div>
                   )}
                   <div>
                     <p className="text-sm font-medium">
-                      {entry.display_name}
+                      {displayName}
                     </p>
-                    <p className="text-xs text-muted-foreground">@{entry.username}</p>
+                    {entry.username && entry.display_name && (
+                      <p className="text-xs text-muted-foreground">@{entry.username}</p>
+                    )}
                   </div>
                 </div>
               </TableCell>
@@ -98,7 +102,8 @@ export default function LeaderboardTable({ entries }: LeaderboardTableProps) {
                 Lv.{entry.level}
               </TableCell>
             </TableRow>
-          ))}
+            );
+          })}
         </TableBody>
       </Table>
     </Card>

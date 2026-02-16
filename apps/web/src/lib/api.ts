@@ -183,30 +183,34 @@ export function getDailyStudy(days: number = 14): Promise<DailyStudy[]> {
 }
 
 // Leaderboard
-export function getLeaderboard(
+export async function getLeaderboard(
   guildId: string,
   category: string = "xp",
   period: string = "all_time",
   limit: number = 20,
   offset: number = 0
 ): Promise<LeaderboardEntry[]> {
-  return fetchAPI<LeaderboardEntry[]>(
+  const res = await fetchAPI<{ entries: LeaderboardEntry[] }>(
     `/api/leaderboard/${guildId}?category=${category}&period=${period}&limit=${limit}&offset=${offset}`
   );
+  return res.entries;
 }
 
 // Achievements
-export function getAchievements(): Promise<Achievement[]> {
-  return fetchAPI<Achievement[]>("/api/achievements/all");
+export async function getAchievements(): Promise<Achievement[]> {
+  const res = await fetchAPI<PaginatedResponse<Achievement>>("/api/achievements/all");
+  return res.items;
 }
 
-export function getMyAchievements(): Promise<UserAchievement[]> {
-  return fetchAPI<UserAchievement[]>("/api/achievements/me");
+export async function getMyAchievements(): Promise<UserAchievement[]> {
+  const res = await fetchAPI<PaginatedResponse<UserAchievement>>("/api/achievements/me");
+  return res.items;
 }
 
 // Flashcards
-export function getDecks(): Promise<FlashcardDeck[]> {
-  return fetchAPI<FlashcardDeck[]>("/api/flashcards/decks");
+export async function getDecks(): Promise<FlashcardDeck[]> {
+  const res = await fetchAPI<PaginatedResponse<FlashcardDeck>>("/api/flashcards/decks");
+  return res.items;
 }
 
 export function getDeckCards(deckId: string): Promise<Flashcard[]> {
@@ -317,9 +321,10 @@ export interface TodoItem {
   created_at: string;
 }
 
-export function getTodos(status?: string): Promise<TodoItem[]> {
+export async function getTodos(status?: string): Promise<TodoItem[]> {
   const params = status ? `?status=${status}` : "";
-  return fetchAPI<TodoItem[]>(`/api/todos${params}`);
+  const res = await fetchAPI<PaginatedResponse<TodoItem>>(`/api/todos${params}`);
+  return res.items;
 }
 
 export function createTodo(data: {
@@ -438,6 +443,9 @@ export interface FocusSession {
   remaining_minutes: number;
   end_time: string | null;
   started_at: string | null;
+  challenge_mode: string;
+  block_categories: string[];
+  block_message: string;
 }
 
 export interface FocusHistoryEntry {
@@ -457,6 +465,24 @@ export interface LockSettings {
   default_coin_bet: number;
   block_categories: string[];
   custom_blocked_urls: string[];
+  challenge_mode: string;
+  challenge_difficulty: number;
+  block_message: string;
+}
+
+export interface ChallengeGenerateResponse {
+  challenge_id: number;
+  challenge_type: string;
+  difficulty: number;
+  problems: Array<{ expression?: string } | string>;
+}
+
+export interface ChallengeVerifyResponse {
+  correct: boolean;
+  score: number;
+  total: number;
+  accuracy?: number;
+  dismissed_until?: string;
 }
 
 export interface UnlockResult {
@@ -474,6 +500,7 @@ export function startFocus(data: {
   duration: number;
   unlock_level: number;
   coins_bet: number;
+  challenge_mode?: string;
 }): Promise<FocusSession> {
   return fetchAPI<FocusSession>("/api/focus/start", {
     method: "POST",
@@ -518,6 +545,27 @@ export function updateLockSettings(data: Partial<LockSettings>): Promise<LockSet
 
 export function getFocusHistory(limit: number = 20): Promise<FocusHistoryEntry[]> {
   return fetchAPI<FocusHistoryEntry[]>(`/api/focus/history?limit=${limit}`);
+}
+
+// === Challenge ===
+export function generateChallenge(
+  challengeType: string,
+  difficulty: number
+): Promise<ChallengeGenerateResponse> {
+  return fetchAPI<ChallengeGenerateResponse>("/api/focus/challenge/generate", {
+    method: "POST",
+    body: JSON.stringify({ challenge_type: challengeType, difficulty }),
+  });
+}
+
+export function verifyChallenge(
+  challengeId: number,
+  answers: Array<number | string>
+): Promise<ChallengeVerifyResponse> {
+  return fetchAPI<ChallengeVerifyResponse>("/api/focus/challenge/verify", {
+    method: "POST",
+    body: JSON.stringify({ challenge_id: challengeId, answers }),
+  });
 }
 
 // === Activity ===

@@ -1,6 +1,8 @@
 """フォーカス/ロック管理ルート"""
 
+import json
 import logging
+import random
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +10,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from api.database import get_pool
 from api.dependencies import get_current_user
 from api.models.schemas import (
+    ChallengeGenerateRequest,
+    ChallengeGenerateResponse,
+    ChallengeVerifyRequest,
+    ChallengeVerifyResponse,
     FocusHistoryEntry,
     FocusSessionResponse,
     FocusStartRequest,
@@ -44,6 +50,12 @@ async def get_focus_status(
             user_id,
         )
 
+        # ユーザーのロック設定を取得（ブロックカテゴリ/メッセージ用）
+        settings_row = await conn.fetchrow(
+            "SELECT block_categories, block_message FROM user_lock_settings WHERE user_id = $1",
+            user_id,
+        ) if row else None
+
     if not row:
         return None
 
@@ -62,6 +74,17 @@ async def get_focus_status(
         remaining_minutes=remaining // 60,
         end_time=end_time,
         started_at=row["started_at"],
+        challenge_mode=row.get("challenge_mode", "none") or "none",
+        block_categories=(
+            list(settings_row["block_categories"])
+            if settings_row and settings_row["block_categories"]
+            else []
+        ),
+        block_message=(
+            settings_row["block_message"]
+            if settings_row and settings_row["block_message"]
+            else ""
+        ),
     )
 
 
@@ -93,18 +116,26 @@ async def start_focus(
                 detail="コインベットは10〜100の範囲で指定してください。",
             )
 
+        # チャレンジモードのバリデーション
+        if request.challenge_mode not in ("none", "math", "typing"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="チャレンジモードは none/math/typing のいずれかを指定してください。",
+            )
+
         row = await conn.fetchrow(
             """
             INSERT INTO phone_lock_sessions
                 (user_id, lock_type, duration_minutes, coins_bet,
-                 unlock_level, state, started_at)
-            VALUES ($1, 'lock', $2, $3, $4, 'active', NOW())
+                 unlock_level, challenge_mode, state, started_at)
+            VALUES ($1, 'lock', $2, $3, $4, $5, 'active', NOW())
             RETURNING *
             """,
             user_id,
             request.duration,
             request.coins_bet,
             request.unlock_level,
+            request.challenge_mode,
         )
 
     end_time = row["started_at"] + timedelta(minutes=row["duration_minutes"])
@@ -121,6 +152,7 @@ async def start_focus(
         remaining_minutes=remaining // 60,
         end_time=end_time,
         started_at=row["started_at"],
+        challenge_mode=row.get("challenge_mode", "none") or "none",
     )
 
 
@@ -399,6 +431,9 @@ async def get_lock_settings(
         custom_blocked_urls=(
             list(row["custom_blocked_urls"]) if row["custom_blocked_urls"] else []
         ),
+        challenge_mode=row.get("challenge_mode", "none") or "none",
+        challenge_difficulty=row.get("challenge_difficulty", 1) or 1,
+        block_message=row.get("block_message", "") or "",
     )
 
 
@@ -445,20 +480,46 @@ async def update_lock_settings(
                 else []
             )
         )
+        ch_mode = (
+            request.challenge_mode
+            if request.challenge_mode is not None
+            else (existing.get("challenge_mode", "none") if existing else "none")
+        ) or "none"
+        ch_diff = (
+            request.challenge_difficulty
+            if request.challenge_difficulty is not None
+            else (existing.get("challenge_difficulty", 1) if existing else 1)
+        ) or 1
+        blk_msg = (
+            request.block_message
+            if request.block_message is not None
+            else (existing.get("block_message", "") if existing else "")
+        ) or ""
+
+        # カスタムURLバリデーション（最大50件）
+        if urls and len(urls) > 50:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="カスタムURLは最大50件までです。",
+            )
 
         row = await conn.fetchrow(
             """
             INSERT INTO user_lock_settings
                 (user_id, default_unlock_level, default_duration,
                  default_coin_bet, block_categories, custom_blocked_urls,
+                 challenge_mode, challenge_difficulty, block_message,
                  updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, NOW())
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
             ON CONFLICT (user_id) DO UPDATE SET
                 default_unlock_level = $2,
                 default_duration = $3,
                 default_coin_bet = $4,
                 block_categories = $5,
                 custom_blocked_urls = $6,
+                challenge_mode = $7,
+                challenge_difficulty = $8,
+                block_message = $9,
                 updated_at = NOW()
             RETURNING *
             """,
@@ -468,6 +529,9 @@ async def update_lock_settings(
             bet,
             categories,
             urls,
+            ch_mode,
+            ch_diff,
+            blk_msg,
         )
 
     return LockSettingsResponse(
@@ -478,6 +542,9 @@ async def update_lock_settings(
         custom_blocked_urls=(
             list(row["custom_blocked_urls"]) if row["custom_blocked_urls"] else []
         ),
+        challenge_mode=row.get("challenge_mode", "none") or "none",
+        challenge_difficulty=row.get("challenge_difficulty", 1) or 1,
+        block_message=row.get("block_message", "") or "",
     )
 
 
@@ -515,3 +582,242 @@ async def get_focus_history(
         )
         for row in rows
     ]
+
+
+# === チャレンジ API ===
+
+# チャレンジ難易度設定（constants.py と同一定義）
+_CHALLENGE_DIFFICULTY = {
+    1: {"problems": 3, "min_digits": 1, "max_digits": 2, "ops": ["+", "-"]},
+    2: {"problems": 4, "min_digits": 1, "max_digits": 2, "ops": ["+", "-", "*"]},
+    3: {"problems": 5, "min_digits": 2, "max_digits": 3, "ops": ["+", "-", "*"]},
+    4: {"problems": 6, "min_digits": 2, "max_digits": 3, "ops": ["+", "-", "*", "//"]},
+    5: {"problems": 8, "min_digits": 2, "max_digits": 4, "ops": ["+", "-", "*", "//"]},
+}
+
+_TYPING_PHRASES = [
+    "集中して学習に取り組みましょう",
+    "今やるべきことに全力を注ごう",
+    "スマホを置いて目標に向かって進もう",
+    "一歩一歩の積み重ねが大きな成果になる",
+    "今この瞬間の努力が未来を変える",
+    "諦めずに続ける人だけが目標を達成できる",
+    "集中力こそが最強のスキルである",
+    "自分との約束を守ることが成長の鍵",
+    "目の前の課題に集中すれば結果はついてくる",
+    "限られた時間を最大限に活用しよう",
+]
+
+CHALLENGE_DISMISS_COOLDOWN = 300  # 5分
+
+
+@router.post("/challenge/generate", response_model=ChallengeGenerateResponse)
+async def generate_challenge(
+    request: ChallengeGenerateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """チャレンジを生成（回答はDB保存、クライアントに問題のみ返却）"""
+    user_id = current_user["user_id"]
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        # アクティブセッション必須
+        session = await conn.fetchrow(
+            """
+            SELECT id, challenge_mode FROM phone_lock_sessions
+            WHERE user_id = $1 AND state = 'active'
+            ORDER BY started_at DESC LIMIT 1
+            """,
+            user_id,
+        )
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="アクティブなセッションがありません。",
+            )
+
+        difficulty = request.difficulty
+        config = _CHALLENGE_DIFFICULTY.get(difficulty, _CHALLENGE_DIFFICULTY[1])
+
+        if request.challenge_type == "math":
+            problems = []
+            for _ in range(config["problems"]):
+                op = random.choice(config["ops"])
+                a = random.randint(
+                    10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1
+                )
+                b = random.randint(
+                    10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1
+                )
+                if op == "//":
+                    b = max(b, 2)
+                    a = a * b
+                expr = f"{a} {op} {b}"
+                if op == "+":
+                    answer = a + b
+                elif op == "-":
+                    answer = a - b
+                elif op == "*":
+                    answer = a * b
+                else:
+                    answer = a // b
+                problems.append({"expression": expr, "answer": answer})
+
+            # DBに保存（answerも含めて）
+            row = await conn.fetchrow(
+                """
+                INSERT INTO challenge_attempts
+                    (user_id, session_id, challenge_type, difficulty, problems)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+                """,
+                user_id,
+                session["id"],
+                "math",
+                difficulty,
+                json.dumps(problems),
+            )
+
+            # クライアントには answer を含めない
+            client_problems = [{"expression": p["expression"]} for p in problems]
+            return ChallengeGenerateResponse(
+                challenge_id=row["id"],
+                challenge_type="math",
+                difficulty=difficulty,
+                problems=client_problems,
+            )
+
+        elif request.challenge_type == "typing":
+            count = min(difficulty, len(_TYPING_PHRASES))
+            phrases = random.sample(_TYPING_PHRASES, count)
+
+            row = await conn.fetchrow(
+                """
+                INSERT INTO challenge_attempts
+                    (user_id, session_id, challenge_type, difficulty, problems)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING id
+                """,
+                user_id,
+                session["id"],
+                "typing",
+                difficulty,
+                json.dumps(phrases),
+            )
+
+            return ChallengeGenerateResponse(
+                challenge_id=row["id"],
+                challenge_type="typing",
+                difficulty=difficulty,
+                problems=phrases,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="challenge_type は math または typing を指定してください。",
+            )
+
+
+@router.post("/challenge/verify", response_model=ChallengeVerifyResponse)
+async def verify_challenge(
+    request: ChallengeVerifyRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """チャレンジ回答を検証"""
+    user_id = current_user["user_id"]
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        # チャレンジ取得
+        attempt = await conn.fetchrow(
+            """
+            SELECT * FROM challenge_attempts
+            WHERE id = $1 AND user_id = $2 AND correct = FALSE
+            """,
+            request.challenge_id,
+            user_id,
+        )
+
+        if not attempt:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="チャレンジが見つからないか、既に検証済みです。",
+            )
+
+        problems = json.loads(attempt["problems"]) if isinstance(attempt["problems"], str) else attempt["problems"]
+        answers = request.answers
+        ch_type = attempt["challenge_type"]
+
+        if ch_type == "math":
+            if len(answers) != len(problems):
+                correct = False
+                score = 0
+            else:
+                score = sum(
+                    1 for p, a in zip(problems, answers) if p["answer"] == a
+                )
+                correct = score == len(problems)
+
+            await conn.execute(
+                """
+                UPDATE challenge_attempts
+                SET answers = $2, correct = $3
+                WHERE id = $1
+                """,
+                attempt["id"],
+                json.dumps(answers),
+                correct,
+            )
+
+            dismissed_until = None
+            if correct:
+                dismissed_until = datetime.now(UTC) + timedelta(
+                    seconds=CHALLENGE_DISMISS_COOLDOWN
+                )
+
+            return ChallengeVerifyResponse(
+                correct=correct,
+                score=score,
+                total=len(problems),
+                dismissed_until=dismissed_until,
+            )
+
+        elif ch_type == "typing":
+            if len(answers) != len(problems):
+                correct = False
+                matched = 0
+            else:
+                matched = sum(1 for o, t in zip(problems, answers) if o == t)
+                correct = matched == len(problems)
+
+            accuracy = matched / len(problems) * 100 if problems else 0.0
+
+            await conn.execute(
+                """
+                UPDATE challenge_attempts
+                SET answers = $2, correct = $3
+                WHERE id = $1
+                """,
+                attempt["id"],
+                json.dumps(answers),
+                correct,
+            )
+
+            dismissed_until = None
+            if correct:
+                dismissed_until = datetime.now(UTC) + timedelta(
+                    seconds=CHALLENGE_DISMISS_COOLDOWN
+                )
+
+            return ChallengeVerifyResponse(
+                correct=correct,
+                score=matched,
+                total=len(problems),
+                accuracy=round(accuracy, 1),
+                dismissed_until=dismissed_until,
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不明なチャレンジタイプです。",
+            )

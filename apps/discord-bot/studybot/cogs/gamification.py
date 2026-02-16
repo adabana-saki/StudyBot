@@ -317,7 +317,7 @@ class GamificationCog(commands.Cog):
 
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="profile_edit", description="プロフィールを編集")
+    @app_commands.command(name="profile-edit", description="プロフィールを編集")
     async def profile_edit(self, interaction: discord.Interaction):
         """モーダルでプロフィールを編集"""
         await interaction.response.send_modal(ProfileEditModal(self))
@@ -342,7 +342,7 @@ class GamificationCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="focus_score", description="フォーカススコアの詳細を表示")
+    @app_commands.command(name="focus-score", description="フォーカススコアの詳細を表示")
     async def focus_score_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
@@ -445,7 +445,7 @@ class GamificationCog(commands.Cog):
         embed.set_footer(text="学習するたびにシーズンXPが貯まります")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @app_commands.command(name="season_ranking", description="シーズンランキングを表示")
+    @app_commands.command(name="season-ranking", description="シーズンランキングを表示")
     async def season_ranking_command(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
@@ -470,7 +470,7 @@ class GamificationCog(commands.Cog):
             )
         await interaction.followup.send(embed=embed)
 
-    @app_commands.command(name="study_timing", description="最適な学習タイミングを分析")
+    @app_commands.command(name="study-timing", description="最適な学習タイミングを分析")
     async def study_timing_command(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 

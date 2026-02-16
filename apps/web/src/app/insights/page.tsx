@@ -33,14 +33,14 @@ export default function InsightsPage() {
 
     async function fetchData() {
       try {
-        const [insightsData, reportsData, dailyData] = await Promise.all([
+        const [insightsRes, reportsRes, dailyRes] = await Promise.allSettled([
           getMyInsights(),
           getMyReports(),
           getDailyStudy(90),
         ]);
-        setInsights(insightsData);
-        setReports(reportsData);
-        setDailyStudy(dailyData);
+        if (insightsRes.status === "fulfilled") setInsights(insightsRes.value);
+        if (reportsRes.status === "fulfilled") setReports(reportsRes.value);
+        if (dailyRes.status === "fulfilled") setDailyStudy(dailyRes.value);
       } catch {
         // ignore
       } finally {

@@ -1,5 +1,6 @@
 """ロック設定 DB操作"""
 
+import json
 import logging
 import secrets
 import string
@@ -30,6 +31,9 @@ class LockSettingsRepository(BaseRepository):
         default_coin_bet: int = 0,
         block_categories: list[str] | None = None,
         custom_blocked_urls: list[str] | None = None,
+        challenge_mode: str = "none",
+        challenge_difficulty: int = 1,
+        block_message: str = "",
     ) -> dict:
         """ロック設定を作成/更新"""
         async with self.db_pool.acquire() as conn:
@@ -39,14 +43,18 @@ class LockSettingsRepository(BaseRepository):
                 INSERT INTO user_lock_settings
                     (user_id, default_unlock_level, default_duration,
                      default_coin_bet, block_categories, custom_blocked_urls,
+                     challenge_mode, challenge_difficulty, block_message,
                      updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
                 ON CONFLICT (user_id) DO UPDATE SET
                     default_unlock_level = $2,
                     default_duration = $3,
                     default_coin_bet = $4,
                     block_categories = $5,
                     custom_blocked_urls = $6,
+                    challenge_mode = $7,
+                    challenge_difficulty = $8,
+                    block_message = $9,
                     updated_at = NOW()
                 RETURNING *
                 """,
@@ -56,6 +64,9 @@ class LockSettingsRepository(BaseRepository):
                 default_coin_bet,
                 block_categories or [],
                 custom_blocked_urls or [],
+                challenge_mode,
+                challenge_difficulty,
+                block_message,
             )
         return dict(row)
 
@@ -171,3 +182,33 @@ class LockSettingsRepository(BaseRepository):
                 limit,
             )
         return [dict(row) for row in rows]
+
+    async def log_challenge_attempt(
+        self,
+        user_id: int,
+        session_id: int,
+        challenge_type: str,
+        difficulty: int,
+        problems: list,
+        answers: list,
+        correct: bool,
+    ) -> dict:
+        """チャレンジ試行をログに記録"""
+        async with self.db_pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO challenge_attempts
+                    (user_id, session_id, challenge_type, difficulty,
+                     problems, answers, correct)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING *
+                """,
+                user_id,
+                session_id,
+                challenge_type,
+                difficulty,
+                json.dumps(problems),
+                json.dumps(answers),
+                correct,
+            )
+        return dict(row)

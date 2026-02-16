@@ -8,7 +8,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands, tasks
 
-from studybot.config.constants import COIN_REWARDS, COLORS, NUDGE_LEVELS, UNLOCK_LEVELS
+from studybot.config.constants import (
+    CHALLENGE_MODES,
+    COIN_REWARDS,
+    COLORS,
+    NUDGE_LEVELS,
+    UNLOCK_LEVELS,
+)
 from studybot.managers.nudge_manager import NudgeManager
 from studybot.utils.embed_helper import error_embed, focus_embed, info_embed, success_embed
 
@@ -35,6 +41,7 @@ class LockConfirmView(discord.ui.View):
         duration: int,
         coins_bet: int = 0,
         unlock_level: int = 1,
+        challenge_mode: str = "none",
     ) -> None:
         super().__init__(timeout=60)
         self.manager = manager
@@ -44,6 +51,7 @@ class LockConfirmView(discord.ui.View):
         self.duration = duration
         self.coins_bet = coins_bet
         self.unlock_level = unlock_level
+        self.challenge_mode = challenge_mode
 
     @discord.ui.button(label="ロック開始", style=discord.ButtonStyle.green)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -63,6 +71,7 @@ class LockConfirmView(discord.ui.View):
                 self.duration,
                 self.coins_bet,
                 self.unlock_level,
+                self.challenge_mode,
             )
 
         if "error" in result:
@@ -201,6 +210,56 @@ class BreakConfirmView(discord.ui.View):
         )
 
 
+class MathChallengeModal(discord.ui.Modal, title="計算チャレンジ"):
+    """計算問題の回答入力モーダル"""
+
+    answers_input = discord.ui.TextInput(
+        label="回答（カンマ区切り）",
+        placeholder="例: 15, 24, 8",
+        style=discord.TextStyle.short,
+        required=True,
+    )
+
+    def __init__(self, manager: NudgeManager, user_id: int, problems: list[dict]) -> None:
+        super().__init__()
+        self.manager = manager
+        self.user_id = user_id
+        self.problems = problems
+        # ラベルに問題を表示
+        exprs = " / ".join(p["expression"] for p in problems)
+        self.answers_input.label = f"回答 ({len(problems)}問)"
+        self.answers_input.placeholder = exprs[:100]
+
+    async def on_submit(self, interaction: discord.Interaction):
+        raw = self.answers_input.value.replace(" ", "").split(",")
+        try:
+            answers = [int(x) for x in raw]
+        except ValueError:
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "数値をカンマ区切りで入力してください。"),
+                ephemeral=True,
+            )
+            return
+
+        result = self.manager.verify_math_challenge(self.problems, answers)
+        if result["correct"]:
+            await interaction.response.send_message(
+                embed=success_embed(
+                    "チャレンジ成功！",
+                    f"全{result['total']}問正解！5分間の一時解除が適用されます。",
+                ),
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                embed=error_embed(
+                    "チャレンジ失敗",
+                    f"{result['score']}/{result['total']}問正解。全問正解が必要です。",
+                ),
+                ephemeral=True,
+            )
+
+
 class PhoneNudgeCog(commands.Cog):
     """スマホ通知機能"""
 
@@ -209,7 +268,7 @@ class PhoneNudgeCog(commands.Cog):
         self.manager = manager
         self.lock_check.start()
 
-    def cog_unload(self) -> None:
+    async def cog_unload(self) -> None:
         self.lock_check.cancel()
 
     nudge_group = app_commands.Group(name="nudge", description="スマホ通知設定")
@@ -325,6 +384,7 @@ class PhoneNudgeCog(commands.Cog):
         duration="ロック時間（分）",
         coins_bet="ベットするコイン数（任意、10〜100）",
         unlock_level="アンロックレベル（1〜5）",
+        challenge_mode="チャレンジモード（解除時にチャレンジが必要）",
     )
     @app_commands.choices(
         unlock_level=[
@@ -333,7 +393,12 @@ class PhoneNudgeCog(commands.Cog):
             app_commands.Choice(name="Lv3: DMコード", value=3),
             app_commands.Choice(name="Lv4: 学習完了コード", value=4),
             app_commands.Choice(name="Lv5: ペナルティ解除", value=5),
-        ]
+        ],
+        challenge_mode=[
+            app_commands.Choice(name="なし", value="none"),
+            app_commands.Choice(name="計算チャレンジ", value="math"),
+            app_commands.Choice(name="タイピングチャレンジ", value="typing"),
+        ],
     )
     async def nudge_lock(
         self,
@@ -341,6 +406,7 @@ class PhoneNudgeCog(commands.Cog):
         duration: int,
         coins_bet: int = 0,
         unlock_level: int = 1,
+        challenge_mode: str = "none",
     ):
         if duration <= 0:
             await interaction.response.send_message(
@@ -355,6 +421,9 @@ class PhoneNudgeCog(commands.Cog):
         desc += f"時間: **{duration}分**\n"
         desc += f"アンロックレベル: **Lv{unlock_level} ({ul['name']})**\n"
         desc += f"_{ul['description']}_\n"
+        if challenge_mode != "none":
+            cm_name = CHALLENGE_MODES.get(challenge_mode, challenge_mode)
+            desc += f"チャレンジモード: **{cm_name}**\n"
         if coins_bet > 0:
             desc += f"ベットコイン: **{coins_bet}枚**\n"
             desc += "（途中解除するとベットコインを失います）\n"
@@ -371,6 +440,7 @@ class PhoneNudgeCog(commands.Cog):
             duration,
             coins_bet,
             unlock_level,
+            challenge_mode,
         )
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
@@ -404,7 +474,7 @@ class PhoneNudgeCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @nudge_group.command(name="break_lock", description="現在のロックを解除")
+    @nudge_group.command(name="break-lock", description="現在のロックを解除")
     async def nudge_break_lock(self, interaction: discord.Interaction):
         status = await self.manager.get_lock_status(interaction.user.id)
         if not status:
@@ -427,7 +497,7 @@ class PhoneNudgeCog(commands.Cog):
         view = BreakConfirmView(self.manager, interaction.user.id, coins_bet)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
-    @nudge_group.command(name="lock_status", description="現在のロックステータスを表示")
+    @nudge_group.command(name="lock-status", description="現在のロックステータスを表示")
     async def nudge_lock_status(self, interaction: discord.Interaction):
         status = await self.manager.get_lock_status(interaction.user.id)
         if not status:
@@ -506,11 +576,65 @@ class PhoneNudgeCog(commands.Cog):
             except Exception:
                 logger.warning("イベント発行失敗", exc_info=True)
 
+    @nudge_group.command(name="challenge-unlock", description="チャレンジで一時解除")
+    async def nudge_challenge_unlock(self, interaction: discord.Interaction):
+        """チャレンジモードで一時解除を試みる"""
+        status = await self.manager.get_lock_status(interaction.user.id)
+        if not status:
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "アクティブなロックがありません。"),
+                ephemeral=True,
+            )
+            return
+
+        lock_info = self.manager.active_locks.get(interaction.user.id, {})
+        ch_mode = lock_info.get("challenge_mode", "none")
+
+        if ch_mode == "none":
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "このロックにはチャレンジモードが設定されていません。"),
+                ephemeral=True,
+            )
+            return
+
+        # 設定から難易度を取得
+        settings = await self.manager.lock_settings_repo.get_settings(interaction.user.id)
+        difficulty = settings.get("challenge_difficulty", 1) if settings else 1
+
+        if ch_mode == "math":
+            problems = self.manager.generate_math_challenge(difficulty)
+            modal = MathChallengeModal(self.manager, interaction.user.id, problems)
+            await interaction.response.send_modal(modal)
+        elif ch_mode == "typing":
+            phrases = self.manager.generate_typing_challenge(difficulty)
+            desc = "以下のフレーズを正確に入力してください:\n\n"
+            for i, phrase in enumerate(phrases, 1):
+                desc += f"**{i}.** {phrase}\n"
+            desc += "\n`/nudge code` でフレーズをカンマ区切りで入力してください。"
+            await interaction.response.send_message(
+                embed=focus_embed("タイピングチャレンジ", desc),
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "不明なチャレンジモードです。"),
+                ephemeral=True,
+            )
+
     @nudge_group.command(name="settings", description="デフォルトロック設定を変更")
     @app_commands.describe(
         unlock_level="デフォルトアンロックレベル（1〜5）",
         duration="デフォルトロック時間（分）",
         coin_bet="デフォルトベットコイン数",
+        challenge_mode="デフォルトチャレンジモード",
+        challenge_difficulty="チャレンジ難易度（1〜5）",
+    )
+    @app_commands.choices(
+        challenge_mode=[
+            app_commands.Choice(name="なし", value="none"),
+            app_commands.Choice(name="計算チャレンジ", value="math"),
+            app_commands.Choice(name="タイピングチャレンジ", value="typing"),
+        ],
     )
     async def nudge_settings(
         self,
@@ -518,21 +642,26 @@ class PhoneNudgeCog(commands.Cog):
         unlock_level: int | None = None,
         duration: int | None = None,
         coin_bet: int | None = None,
+        challenge_mode: str | None = None,
+        challenge_difficulty: int | None = None,
     ):
         """デフォルトロック設定を表示/変更"""
         settings = await self.manager.lock_settings_repo.get_settings(interaction.user.id)
 
-        if unlock_level is None and duration is None and coin_bet is None:
+        if all(v is None for v in [unlock_level, duration, coin_bet, challenge_mode, challenge_difficulty]):
             # 設定表示
             if not settings:
                 desc = "デフォルト設定は未登録です。\n引数を指定して設定してください。"
             else:
                 ul = UNLOCK_LEVELS.get(settings["default_unlock_level"], UNLOCK_LEVELS[1])
+                cm = CHALLENGE_MODES.get(settings.get("challenge_mode", "none"), "なし")
                 desc = (
                     f"アンロックレベル: **Lv{settings['default_unlock_level']}"
                     f" ({ul['name']})**\n"
                     f"ロック時間: **{settings['default_duration']}分**\n"
                     f"ベットコイン: **{settings['default_coin_bet']}枚**\n"
+                    f"チャレンジモード: **{cm}**\n"
+                    f"チャレンジ難易度: **Lv{settings.get('challenge_difficulty', 1)}**\n"
                 )
                 if settings.get("block_categories"):
                     desc += f"ブロックカテゴリ: {', '.join(settings['block_categories'])}\n"
@@ -549,15 +678,27 @@ class PhoneNudgeCog(commands.Cog):
             "default_coin_bet": 0,
             "block_categories": [],
             "custom_blocked_urls": [],
+            "challenge_mode": "none",
+            "challenge_difficulty": 1,
+            "block_message": "",
         }
 
         new_level = unlock_level if unlock_level is not None else current["default_unlock_level"]
         new_duration = duration if duration is not None else current["default_duration"]
         new_bet = coin_bet if coin_bet is not None else current["default_coin_bet"]
+        new_ch_mode = challenge_mode if challenge_mode is not None else current.get("challenge_mode", "none")
+        new_ch_diff = challenge_difficulty if challenge_difficulty is not None else current.get("challenge_difficulty", 1)
 
         if new_level < 1 or new_level > 5:
             await interaction.response.send_message(
                 embed=error_embed("エラー", "アンロックレベルは1〜5の範囲で指定してください。"),
+                ephemeral=True,
+            )
+            return
+
+        if new_ch_diff is not None and (new_ch_diff < 1 or new_ch_diff > 5):
+            await interaction.response.send_message(
+                embed=error_embed("エラー", "チャレンジ難易度は1〜5の範囲で指定してください。"),
                 ephemeral=True,
             )
             return
@@ -569,13 +710,19 @@ class PhoneNudgeCog(commands.Cog):
             default_coin_bet=new_bet,
             block_categories=current.get("block_categories", []),
             custom_blocked_urls=current.get("custom_blocked_urls", []),
+            challenge_mode=new_ch_mode or "none",
+            challenge_difficulty=new_ch_diff or 1,
+            block_message=current.get("block_message", ""),
         )
 
         ul = UNLOCK_LEVELS.get(new_level, UNLOCK_LEVELS[1])
+        cm = CHALLENGE_MODES.get(new_ch_mode or "none", "なし")
         desc = (
             f"アンロックレベル: **Lv{new_level} ({ul['name']})**\n"
             f"ロック時間: **{new_duration}分**\n"
             f"ベットコイン: **{new_bet}枚**\n"
+            f"チャレンジモード: **{cm}**\n"
+            f"チャレンジ難易度: **Lv{new_ch_diff}**\n"
         )
         await interaction.response.send_message(
             embed=success_embed("ロック設定を更新", desc),

@@ -316,6 +316,7 @@ class FocusStartRequest(BaseModel):
     duration: int = Field(ge=1, le=480, description="ロック時間（分）")
     unlock_level: int = Field(default=1, ge=1, le=5, description="アンロックレベル")
     coins_bet: int = Field(default=0, ge=0, le=100, description="ベットコイン")
+    challenge_mode: str = Field(default="none", description="チャレンジモード: none/math/typing")
 
 
 class FocusSessionResponse(BaseModel):
@@ -331,6 +332,9 @@ class FocusSessionResponse(BaseModel):
     remaining_minutes: int
     end_time: datetime | None = None
     started_at: datetime | None = None
+    challenge_mode: str = "none"
+    block_categories: list[str] = []
+    block_message: str = ""
 
 
 class UnlockCodeRequest(BaseModel):
@@ -365,6 +369,9 @@ class LockSettingsResponse(BaseModel):
     default_coin_bet: int = 0
     block_categories: list[str] = []
     custom_blocked_urls: list[str] = []
+    challenge_mode: str = "none"
+    challenge_difficulty: int = 1
+    block_message: str = ""
 
 
 class LockSettingsUpdateRequest(BaseModel):
@@ -375,6 +382,9 @@ class LockSettingsUpdateRequest(BaseModel):
     default_coin_bet: int | None = Field(default=None, ge=0, le=100)
     block_categories: list[str] | None = None
     custom_blocked_urls: list[str] | None = None
+    challenge_mode: str | None = Field(default=None, description="none/math/typing")
+    challenge_difficulty: int | None = Field(default=None, ge=1, le=5)
+    block_message: str | None = Field(default=None, max_length=200)
 
 
 class FocusHistoryEntry(BaseModel):
@@ -388,6 +398,40 @@ class FocusHistoryEntry(BaseModel):
     state: str
     started_at: datetime
     ended_at: datetime | None = None
+
+
+# === Challenge ===
+class ChallengeGenerateRequest(BaseModel):
+    """チャレンジ生成リクエスト"""
+
+    challenge_type: str = Field(description="math or typing")
+    difficulty: int = Field(default=1, ge=1, le=5)
+
+
+class ChallengeGenerateResponse(BaseModel):
+    """チャレンジ生成レスポンス"""
+
+    challenge_id: int
+    challenge_type: str
+    difficulty: int
+    problems: list  # math: [{"expression": "..."}], typing: ["phrase1", ...]
+
+
+class ChallengeVerifyRequest(BaseModel):
+    """チャレンジ検証リクエスト"""
+
+    challenge_id: int
+    answers: list  # math: [int, ...], typing: [str, ...]
+
+
+class ChallengeVerifyResponse(BaseModel):
+    """チャレンジ検証レスポンス"""
+
+    correct: bool
+    score: int = 0
+    total: int = 0
+    accuracy: float | None = None
+    dismissed_until: datetime | None = None
 
 
 # === Activity ===
