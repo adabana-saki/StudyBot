@@ -1,0 +1,68 @@
+{
+  "name": "StudyBot Dashboard",
+  "short_name": "StudyBot",
+  "description": "AI搭載学習支援ダッシュボード - 学習の進捗管理・ゲーミフィケーション",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f1729",
+  "theme_color": "#4338ca",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "ja",
+  "dir": "ltr",
+  "shortcuts": [
+    {
+      "name": "タイマー",
+      "url": "/timer",
+      "description": "ポモドーロタイマーを開始"
+    },
+    {
+      "name": "TODO",
+      "url": "/guest/todos",
+      "description": "タスクを管理"
+    },
+    {
+      "name": "学習記録",
+      "url": "/guest/log",
+      "description": "学習時間を記録"
+    },
+    {
+      "name": "統計",
+      "url": "/guest/stats",
+      "description": "学習データを確認"
+    }
+  ]
+}

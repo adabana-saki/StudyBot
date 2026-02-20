@@ -52,19 +52,21 @@ export default function BlockOverlay({
   dismissedUntil,
 }: BlockOverlayProps) {
   const [motivationIdx, setMotivationIdx] = useState(0);
-
-  // 一時解除中の場合はオーバーレイを非表示
-  if (dismissedUntil && new Date() < dismissedUntil) {
-    return null;
-  }
+  const isDismissed = dismissedUntil ? new Date() < dismissedUntil : false;
 
   // モチベーションメッセージのローテーション
   useEffect(() => {
+    if (isDismissed) return;
     const interval = setInterval(() => {
       setMotivationIdx((prev) => (prev + 1) % MOTIVATION_MESSAGES.length);
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isDismissed]);
+
+  // 一時解除中の場合はオーバーレイを非表示
+  if (isDismissed) {
+    return null;
+  }
 
   const progress = totalSeconds > 0 ? ((totalSeconds - remaining) / totalSeconds) * 100 : 0;
   const displayMessage = blockMessage || MOTIVATION_MESSAGES[motivationIdx];

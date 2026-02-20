@@ -182,6 +182,41 @@ export function getDailyStudy(days: number = 14): Promise<DailyStudy[]> {
   return fetchAPI<DailyStudy[]>(`/api/stats/me/daily?days=${days}`);
 }
 
+// Study Log
+export interface StudyLogEntry {
+  id: number;
+  subject: string;
+  duration_minutes: number;
+  note: string;
+  logged_at: string;
+}
+
+export function getStudyLogs(days: number = 30): Promise<StudyLogEntry[]> {
+  return fetchAPI<StudyLogEntry[]>(`/api/stats/me/logs?days=${days}`);
+}
+
+export function createStudyLog(data: {
+  subject: string;
+  duration_minutes: number;
+  note?: string;
+}): Promise<StudyLogEntry> {
+  return fetchAPI<StudyLogEntry>("/api/stats/me/log", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Update todo (PATCH)
+export function updateTodo(
+  id: number,
+  data: { title?: string; priority?: number; deadline?: string | null; status?: string },
+): Promise<TodoItem> {
+  return fetchAPI<TodoItem>(`/api/todos/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
 // Leaderboard
 export async function getLeaderboard(
   guildId: string,
