@@ -52,17 +52,25 @@ async def discord_callback(code: str = Query(...)):
     user_id = int(user_info["id"])
     username = user_info.get("username", "")
 
+    # Discord アバターURL を構築
+    discord_avatar = user_info.get("avatar")
+    avatar_url = ""
+    if discord_avatar:
+        ext = "gif" if discord_avatar.startswith("a_") else "png"
+        avatar_url = f"https://cdn.discordapp.com/avatars/{user_id}/{discord_avatar}.{ext}?size=128"
+
     # DB にユーザーを確保
     pool = get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
             """
-            INSERT INTO users (user_id, username)
-            VALUES ($1, $2)
-            ON CONFLICT (user_id) DO UPDATE SET username = $2
+            INSERT INTO users (user_id, username, avatar_url)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (user_id) DO UPDATE SET username = $2, avatar_url = $3
             """,
             user_id,
             username,
+            avatar_url,
         )
 
     # JWT生成

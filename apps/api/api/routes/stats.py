@@ -1,10 +1,16 @@
 """統計ルート"""
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from api.database import get_pool
 from api.dependencies import get_current_user
-from api.models.schemas import DailyStudy, StudyStats, UserProfile
+from api.models.schemas import (
+    DailyStudy,
+    StudyLogCreateRequest,
+    StudyLogEntry,
+    StudyStats,
+    UserProfile,
+)
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
 
@@ -16,6 +22,12 @@ async def get_my_stats(current_user: dict = Depends(get_current_user)):
     pool = get_pool()
 
     async with pool.acquire() as conn:
+        # ユーザー情報（アバター含む）
+        user_row = await conn.fetchrow(
+            "SELECT username, COALESCE(avatar_url, '') as avatar_url FROM users WHERE user_id = $1",
+            user_id,
+        )
+
         # レベル情報
         level_row = await conn.fetchrow(
             "SELECT xp, level, streak_days FROM user_levels WHERE user_id = $1",
@@ -39,7 +51,8 @@ async def get_my_stats(current_user: dict = Depends(get_current_user)):
 
     return UserProfile(
         user_id=user_id,
-        username=current_user["username"],
+        username=user_row["username"] if user_row else current_user["username"],
+        avatar_url=user_row["avatar_url"] if user_row else "",
         xp=level_row["xp"] if level_row else 0,
         level=level_row["level"] if level_row else 1,
         streak_days=level_row["streak_days"] if level_row else 0,
@@ -111,3 +124,68 @@ async def get_daily_study(
         )
 
     return [DailyStudy(day=row["day"], total_minutes=row["total_minutes"]) for row in rows]
+
+
+@router.post("/me/log", response_model=StudyLogEntry)
+async def create_study_log(
+    request: StudyLogCreateRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """手動で学習記録を作成"""
+    user_id = current_user["user_id"]
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO study_logs (user_id, guild_id, subject, duration_minutes, note)
+            VALUES ($1, 0, $2, $3, $4)
+            RETURNING id, subject, duration_minutes, note, logged_at
+            """,
+            user_id,
+            request.subject or "",
+            request.duration_minutes,
+            request.note or "",
+        )
+
+    return StudyLogEntry(
+        id=row["id"],
+        subject=row["subject"],
+        duration_minutes=row["duration_minutes"],
+        note=row["note"],
+        logged_at=row["logged_at"],
+    )
+
+
+@router.get("/me/logs", response_model=list[StudyLogEntry])
+async def get_study_logs(
+    days: int = Query(default=30, ge=1, le=365),
+    current_user: dict = Depends(get_current_user),
+):
+    """学習記録一覧を取得"""
+    user_id = current_user["user_id"]
+    pool = get_pool()
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, subject, duration_minutes, note, logged_at
+            FROM study_logs
+            WHERE user_id = $1 AND logged_at >= CURRENT_DATE - $2
+            ORDER BY logged_at DESC
+            LIMIT 100
+            """,
+            user_id,
+            days,
+        )
+
+    return [
+        StudyLogEntry(
+            id=r["id"],
+            subject=r["subject"],
+            duration_minutes=r["duration_minutes"],
+            note=r["note"] or "",
+            logged_at=r["logged_at"],
+        )
+        for r in rows
+    ]

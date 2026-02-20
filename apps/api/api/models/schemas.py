@@ -39,6 +39,8 @@ class AuthCodeExchangeRequest(BaseModel):
 class UserProfile(BaseModel):
     user_id: int
     username: str
+    display_name: str = ""
+    avatar_url: str = ""
     xp: int
     level: int
     streak_days: int
@@ -218,6 +220,21 @@ class TodoUpdateRequest(BaseModel):
     priority: int | None = Field(default=None, ge=1, le=3)
     deadline: datetime | None = None
     status: Literal["pending", "completed"] | None = None
+
+
+# === Study Log (manual) ===
+class StudyLogCreateRequest(BaseModel):
+    subject: str = Field(default="", max_length=100, description="科目")
+    duration_minutes: int = Field(ge=1, le=720, description="学習時間（分）")
+    note: str = Field(default="", max_length=500, description="メモ")
+
+
+class StudyLogEntry(BaseModel):
+    id: int
+    subject: str
+    duration_minutes: int
+    note: str
+    logged_at: datetime
 
 
 # === Plans ===

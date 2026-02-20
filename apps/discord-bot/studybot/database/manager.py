@@ -49,6 +49,7 @@ class DatabaseManager:
                 CREATE TABLE IF NOT EXISTS users (
                     user_id BIGINT PRIMARY KEY,
                     username VARCHAR(100),
+                    avatar_url TEXT DEFAULT '',
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
 
