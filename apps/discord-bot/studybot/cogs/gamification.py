@@ -603,6 +603,22 @@ class GamificationCog(commands.Cog):
         # バトル貢献
         await self._update_battle_contribution(user_id, "pomodoro", 1)
 
+        # サンクチュアリ連携: 庭園成長
+        sanctuary_cog = self.bot.get_cog("SanctuaryCog")
+        if sanctuary_cog:
+            try:
+                await sanctuary_cog.award_growth_points(user_id, 25)
+            except Exception:
+                logger.debug("Sanctuary growth failed", exc_info=True)
+
+        # フォージ連携: 品質記録
+        forge_cog = self.bot.get_cog("ForgeCog")
+        if forge_cog:
+            try:
+                await forge_cog.record_quality(user_id, "general", 25)
+            except Exception:
+                logger.debug("Forge quality failed", exc_info=True)
+
     async def award_task_xp(
         self, user_id: int, priority: int, channel: discord.abc.Messageable
     ) -> None:
@@ -635,6 +651,22 @@ class GamificationCog(commands.Cog):
 
         # バトル貢献
         await self._update_battle_contribution(user_id, "tasks", 1)
+
+        # サンクチュアリ連携
+        sanctuary_cog = self.bot.get_cog("SanctuaryCog")
+        if sanctuary_cog:
+            try:
+                await sanctuary_cog.award_growth_points(user_id, 15)
+            except Exception:
+                logger.debug("Sanctuary growth failed", exc_info=True)
+
+        # フォージ連携
+        forge_cog = self.bot.get_cog("ForgeCog")
+        if forge_cog:
+            try:
+                await forge_cog.record_quality(user_id, "general", 15)
+            except Exception:
+                logger.debug("Forge quality failed", exc_info=True)
 
     async def award_study_log_xp(
         self,
@@ -681,6 +713,22 @@ class GamificationCog(commands.Cog):
 
         # バトル貢献
         await self._update_battle_contribution(user_id, "study_minutes", duration_minutes)
+
+        # サンクチュアリ連携: 庭園成長
+        sanctuary_cog = self.bot.get_cog("SanctuaryCog")
+        if sanctuary_cog:
+            try:
+                await sanctuary_cog.award_growth_points(user_id, duration_minutes)
+            except Exception:
+                logger.debug("Sanctuary growth failed", exc_info=True)
+
+        # フォージ連携: 品質記録
+        forge_cog = self.bot.get_cog("ForgeCog")
+        if forge_cog:
+            try:
+                await forge_cog.record_quality(user_id, "general", duration_minutes)
+            except Exception:
+                logger.debug("Forge quality failed", exc_info=True)
 
     async def award_raid_xp(
         self, user_id: int, base_xp: int, channel: discord.abc.Messageable

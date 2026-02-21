@@ -886,6 +886,201 @@ class DatabaseManager:
                     duration_minutes INT DEFAULT 0
                 );
 
+                -- Phase 10: サンクチュアリ（癒しの学習庭園）
+                CREATE TABLE IF NOT EXISTS sanctuary_gardens (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                    vitality FLOAT DEFAULT 0,
+                    harmony FLOAT DEFAULT 0,
+                    season VARCHAR(20) DEFAULT 'spring',
+                    last_tended_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS sanctuary_plants (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    plant_type VARCHAR(30) NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    growth FLOAT DEFAULT 0,
+                    health FLOAT DEFAULT 100,
+                    planted_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS sanctuary_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    phase VARCHAR(20) NOT NULL,
+                    mood_before INT NOT NULL CHECK (mood_before BETWEEN 1 AND 5),
+                    energy_before INT NOT NULL CHECK (energy_before BETWEEN 1 AND 5),
+                    mood_after INT,
+                    energy_after INT,
+                    growth_points FLOAT DEFAULT 0,
+                    note TEXT DEFAULT '',
+                    completed BOOLEAN DEFAULT FALSE,
+                    started_at TIMESTAMPTZ DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ
+                );
+
+                -- Phase 10: エクスペディション（知識探検冒険）
+                CREATE TABLE IF NOT EXISTS expedition_explorers (
+                    user_id BIGINT PRIMARY KEY REFERENCES users(user_id) ON DELETE CASCADE,
+                    total_territories INT DEFAULT 0,
+                    total_points INT DEFAULT 0,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_territories (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    region VARCHAR(30) NOT NULL,
+                    topic_keyword VARCHAR(50) NOT NULL UNIQUE,
+                    difficulty INT DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 5),
+                    required_minutes INT DEFAULT 60,
+                    emoji VARCHAR(10) DEFAULT '🗺️',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_progress (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    territory_id INT NOT NULL
+                        REFERENCES expedition_territories(id) ON DELETE CASCADE,
+                    minutes_spent INT DEFAULT 0,
+                    completed BOOLEAN DEFAULT FALSE,
+                    completed_at TIMESTAMPTZ,
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, territory_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_parties (
+                    id SERIAL PRIMARY KEY,
+                    creator_id BIGINT NOT NULL REFERENCES users(user_id),
+                    guild_id BIGINT NOT NULL,
+                    name VARCHAR(100) NOT NULL,
+                    region VARCHAR(30) NOT NULL,
+                    goal_minutes INT NOT NULL,
+                    progress_minutes INT DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'active',
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    completed_at TIMESTAMPTZ
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_party_members (
+                    id SERIAL PRIMARY KEY,
+                    party_id INT NOT NULL
+                        REFERENCES expedition_parties(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    contribution_minutes INT DEFAULT 0,
+                    joined_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(party_id, user_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_discoveries (
+                    id SERIAL PRIMARY KEY,
+                    guild_id BIGINT NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    description TEXT DEFAULT '',
+                    reward_points INT DEFAULT 0,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                -- Phase 10: フォージ（熟練の鍛冶場）
+                CREATE TABLE IF NOT EXISTS forge_skills (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    category VARCHAR(30) NOT NULL,
+                    mastery_xp INT DEFAULT 0,
+                    mastery_level INT DEFAULT 0,
+                    quality_avg FLOAT DEFAULT 0,
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, category)
+                );
+
+                CREATE TABLE IF NOT EXISTS forge_quality_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    category VARCHAR(30) NOT NULL,
+                    focus INT NOT NULL CHECK (focus BETWEEN 1 AND 5),
+                    difficulty INT NOT NULL CHECK (difficulty BETWEEN 1 AND 5),
+                    progress INT NOT NULL CHECK (progress BETWEEN 1 AND 5),
+                    quality_score FLOAT NOT NULL,
+                    duration_minutes INT DEFAULT 0,
+                    logged_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS forge_ratings (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                    category VARCHAR(30) NOT NULL,
+                    rating INT DEFAULT 1200,
+                    wins INT DEFAULT 0,
+                    losses INT DEFAULT 0,
+                    updated_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, category)
+                );
+
+                -- Phase 10: フォージチャレンジシステム
+                CREATE TABLE IF NOT EXISTS forge_challenges (
+                    id SERIAL PRIMARY KEY,
+                    creator_id BIGINT NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    description TEXT DEFAULT '',
+                    category VARCHAR(30) NOT NULL,
+                    difficulty_rating INT DEFAULT 1200,
+                    attempt_count INT DEFAULT 0,
+                    success_count INT DEFAULT 0,
+                    is_template BOOLEAN DEFAULT FALSE,
+                    active BOOLEAN DEFAULT TRUE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS forge_challenge_attempts (
+                    id SERIAL PRIMARY KEY,
+                    challenge_id INT NOT NULL
+                        REFERENCES forge_challenges(id) ON DELETE CASCADE,
+                    user_id BIGINT NOT NULL,
+                    passed BOOLEAN NOT NULL,
+                    user_rating_before INT NOT NULL,
+                    user_rating_after INT NOT NULL,
+                    challenge_rating_before INT NOT NULL,
+                    challenge_rating_after INT NOT NULL,
+                    attempted_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS forge_submissions (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    category VARCHAR(30) NOT NULL,
+                    title VARCHAR(200) NOT NULL,
+                    description TEXT NOT NULL,
+                    status VARCHAR(20) DEFAULT 'open',
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS forge_reviews (
+                    id SERIAL PRIMARY KEY,
+                    submission_id INT NOT NULL
+                        REFERENCES forge_submissions(id) ON DELETE CASCADE,
+                    reviewer_id BIGINT NOT NULL,
+                    quality_rating INT NOT NULL
+                        CHECK (quality_rating BETWEEN 1 AND 5),
+                    feedback TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(submission_id, reviewer_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS expedition_journal_entries (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL,
+                    title VARCHAR(100) NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
                 -- Phase 10: チャレンジ試行ログ
                 CREATE TABLE IF NOT EXISTS challenge_attempts (
                     id SERIAL PRIMARY KEY,
@@ -1075,6 +1270,59 @@ class DatabaseManager:
                 -- Phase 10: Challenge attempts indexes
                 CREATE INDEX IF NOT EXISTS idx_challenge_attempts_user
                     ON challenge_attempts(user_id, session_id);
+
+                -- Phase 10: Sanctuary indexes
+                CREATE INDEX IF NOT EXISTS idx_sanctuary_plants_user
+                    ON sanctuary_plants(user_id);
+                CREATE INDEX IF NOT EXISTS idx_sanctuary_sessions_user
+                    ON sanctuary_sessions(user_id, started_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_sanctuary_sessions_active
+                    ON sanctuary_sessions(user_id, completed)
+                    WHERE completed = FALSE;
+
+                -- Phase 10: Expedition indexes
+                CREATE INDEX IF NOT EXISTS idx_expedition_progress_user
+                    ON expedition_progress(user_id, territory_id);
+                CREATE INDEX IF NOT EXISTS idx_expedition_territories_region
+                    ON expedition_territories(region, difficulty);
+                CREATE INDEX IF NOT EXISTS idx_expedition_territories_keyword
+                    ON expedition_territories(topic_keyword);
+                CREATE INDEX IF NOT EXISTS idx_expedition_parties_guild
+                    ON expedition_parties(guild_id, status);
+                CREATE INDEX IF NOT EXISTS idx_expedition_party_members_user
+                    ON expedition_party_members(user_id);
+                CREATE INDEX IF NOT EXISTS idx_expedition_discoveries_guild
+                    ON expedition_discoveries(guild_id, expires_at DESC);
+
+                -- Phase 10: Forge challenge indexes
+                CREATE INDEX IF NOT EXISTS idx_forge_challenges_category
+                    ON forge_challenges(category, active);
+                CREATE INDEX IF NOT EXISTS idx_forge_challenges_creator
+                    ON forge_challenges(creator_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_challenge_attempts_user
+                    ON forge_challenge_attempts(user_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_challenge_attempts_challenge
+                    ON forge_challenge_attempts(challenge_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_submissions_status
+                    ON forge_submissions(status, category);
+                CREATE INDEX IF NOT EXISTS idx_forge_submissions_user
+                    ON forge_submissions(user_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_reviews_submission
+                    ON forge_reviews(submission_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_reviews_reviewer
+                    ON forge_reviews(reviewer_id);
+                CREATE INDEX IF NOT EXISTS idx_expedition_journal_user
+                    ON expedition_journal_entries(user_id, created_at DESC);
+
+                -- Phase 10: Forge indexes
+                CREATE INDEX IF NOT EXISTS idx_forge_skills_user
+                    ON forge_skills(user_id);
+                CREATE INDEX IF NOT EXISTS idx_forge_quality_logs_user
+                    ON forge_quality_logs(user_id, logged_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_forge_quality_logs_category
+                    ON forge_quality_logs(user_id, category);
+                CREATE INDEX IF NOT EXISTS idx_forge_ratings_category
+                    ON forge_ratings(category, rating DESC);
                 """
             )
 

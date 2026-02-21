@@ -94,6 +94,16 @@ class StudyLogCog(commands.Cog):
             except Exception:
                 logger.debug("チームクエスト更新失敗", exc_info=True)
 
+        # エクスペディション連携: 探索進捗
+        expedition_cog = self.bot.get_cog("ExpeditionCog")
+        if expedition_cog and topic:
+            try:
+                await expedition_cog.record_study(
+                    interaction.user.id, topic, duration
+                )
+            except Exception:
+                logger.debug("Expedition progress failed", exc_info=True)
+
         # フォーカスロック連携（レベル4: 学習完了コード）
         nudge_cog = self.bot.get_cog("PhoneNudgeCog")
         if nudge_cog:

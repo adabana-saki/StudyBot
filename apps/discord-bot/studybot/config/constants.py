@@ -27,6 +27,10 @@ COLORS = {
     "market": 0x00C853,
     "savings": 0x2196F3,
     "flea": 0xFF9800,
+    # Phase 10: Transformative Concepts
+    "sanctuary": 0x4CAF50,
+    "expedition": 0xFF6F00,
+    "forge": 0x795548,
 }
 
 # XP報酬

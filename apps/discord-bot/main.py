@@ -99,6 +99,10 @@ class StudyBot(commands.Bot):
             ("studybot.cogs.study_room", False),
             # Phase 9
             ("studybot.cogs.market", False),
+            # Phase 10: Transformative Concepts
+            ("studybot.cogs.sanctuary", False),
+            ("studybot.cogs.expedition", False),
+            ("studybot.cogs.forge", False),
             # Utility
             ("studybot.cogs.dashboard", False),
         ]
