@@ -23,6 +23,8 @@ class Settings:
     )
     WEB_BASE_URL: str = os.getenv("WEB_BASE_URL", "http://localhost:3000")
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
+    INTERNAL_API_KEY: str = os.getenv("INTERNAL_API_KEY", "")
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRY_HOURS: int = 24
 

@@ -9,8 +9,7 @@ export const isNative = () => Capacitor.isNativePlatform();
 export const isWeb = () => !isNative();
 
 // ---------- プッシュ通知 ----------
-// Firebase (google-services.json) 設定後に有効化
-// npm install @capacitor/push-notifications してから initPushNotifications を実装
+export { initPushNotifications, unregisterPushNotifications } from "./push-notifications";
 
 // ---------- ローカル通知 ----------
 

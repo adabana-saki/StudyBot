@@ -167,6 +167,16 @@ class NotificationLog(BaseModel):
     read_at: datetime | None
 
 
+class PushNotificationRequest(BaseModel):
+    """内部API: プッシュ通知送信リクエスト"""
+
+    user_id: int
+    title: str = Field(min_length=1, max_length=200)
+    body: str = Field(min_length=1, max_length=500)
+    data: dict | None = None
+    notification_type: str = "general"
+
+
 # === Shop / Currency ===
 class ShopItem(BaseModel):
     id: int

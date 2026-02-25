@@ -1,10 +1,12 @@
 """通知ルート"""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 
+from api.config import settings
 from api.database import get_pool
 from api.dependencies import get_current_user
-from api.models.schemas import DeviceTokenRequest, NotificationLog
+from api.models.schemas import DeviceTokenRequest, NotificationLog, PushNotificationRequest
+from api.services.push_service import get_push_service
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
 
@@ -135,3 +137,34 @@ async def mark_notification_read(
         )
 
     return {"detail": "既読にしました"}
+
+
+@router.post("/send", status_code=status.HTTP_200_OK)
+async def send_push_notification(
+    request: PushNotificationRequest,
+    x_internal_key: str = Header(alias="X-Internal-Key"),
+):
+    """内部API: Botからプッシュ通知を送信"""
+    if not settings.INTERNAL_API_KEY or x_internal_key != settings.INTERNAL_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="無効な内部APIキーです",
+        )
+
+    try:
+        push_service = get_push_service()
+    except RuntimeError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="プッシュ通知サービスが利用できません",
+        )
+
+    sent_count = await push_service.send_to_user(
+        user_id=request.user_id,
+        title=request.title,
+        body=request.body,
+        data=request.data,
+        notification_type=request.notification_type,
+    )
+
+    return {"sent_count": sent_count}

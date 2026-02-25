@@ -18,6 +18,9 @@ redis[hiredis]>=5.0.0
 # SSE
 sse-starlette>=2.0.0
 
+# Firebase
+firebase-admin>=6.4.0
+
 # Config
 python-dotenv>=1.0.0
 

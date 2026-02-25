@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.config import settings
-from api.database import close_pool, init_pool
+from api.database import close_pool, get_pool, init_pool
 from api.middleware.error_handler import setup_error_handlers
 from api.middleware.rate_limiter import RateLimitMiddleware
 from api.middleware.security_headers import SecurityHeadersMiddleware
@@ -41,6 +41,8 @@ from api.routes import (
     wellness,
 )
 from api.services.event_stream import close_event_stream, init_event_stream
+from api.services.push_dispatcher import close_push_dispatcher, init_push_dispatcher
+from api.services.push_service import close_push_service, init_push_service
 from api.services.redis_client import close_redis, init_redis
 
 logging.basicConfig(
@@ -59,6 +61,7 @@ async def lifespan(app: FastAPI):
     logger.info("データベース接続完了")
 
     # Redis + EventStream初期化
+    redis_conn = None
     try:
         redis_conn = await init_redis(settings.REDIS_URL)
         await init_event_stream(redis_conn)
@@ -66,8 +69,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Redis初期化失敗（リアルタイム機能無効）: {e}")
 
+    # プッシュ通知サービス初期化
+    try:
+        push_svc = await init_push_service(get_pool())
+        if redis_conn:
+            await init_push_dispatcher(redis_conn, push_svc)
+        logger.info("プッシュ通知サービス初期化完了")
+    except Exception as e:
+        logger.warning(f"プッシュ通知初期化失敗（FCM無効）: {e}")
+
     yield
 
+    await close_push_dispatcher()
+    await close_push_service()
     await close_event_stream()
     await close_redis()
     await close_pool()
