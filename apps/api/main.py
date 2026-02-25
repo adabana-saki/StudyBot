@@ -15,6 +15,7 @@ from api.routes import (
     achievements,
     activity,
     admin,
+    app_guard,
     auth,
     battles,
     buddy,
@@ -127,6 +128,8 @@ app.include_router(server_analytics.router)
 app.include_router(rooms.router)
 # Phase 9
 app.include_router(market.router)
+# Phase 11: AppGuard
+app.include_router(app_guard.router)
 
 
 @app.get("/")

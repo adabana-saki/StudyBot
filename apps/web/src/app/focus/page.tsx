@@ -20,6 +20,19 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import PageHeader from "@/components/PageHeader";
 import BlockOverlay from "@/components/BlockOverlay";
 import ChallengeModal from "@/components/ChallengeModal";
+import {
+  isNative,
+  startAppMonitoring,
+  stopAppMonitoring,
+  getNativeUsageStats,
+  enableHardBlock,
+  disableHardBlock,
+} from "@/lib/native";
+import {
+  syncAppUsage,
+  syncBreaches,
+  getBlockedApps as fetchBlockedApps,
+} from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +60,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Link from "next/link";
 import {
   Focus,
   Play,
@@ -58,6 +72,9 @@ import {
   AlertTriangle,
   Send,
   History,
+  Shield,
+  BarChart3,
+  Smartphone,
 } from "lucide-react";
 
 const UNLOCK_LEVEL_INFO: Record<
@@ -264,6 +281,32 @@ export default function FocusPage() {
       setSession(result);
       setRemaining(result.remaining_seconds);
       setCodeRequestSent(false);
+
+      // AppGuard: ネイティブ環境でアプリ監視開始
+      if (isNative()) {
+        try {
+          const blockedApps = await fetchBlockedApps();
+          const blockedPkgs = blockedApps.map((a) => a.package_name);
+          if (blockedPkgs.length > 0) {
+            await startAppMonitoring(result.session_id, blockedPkgs);
+            // ハードブロックが有効な場合
+            {
+              const lockSettings = await getLockSettings();
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if (lockSettings && (lockSettings as any).native_block_mode === "hard") {
+                await enableHardBlock(
+                  result.session_id,
+                  blockedPkgs,
+                  lockSettings.block_message || "集中モード中です",
+                  startChallengeMode,
+                );
+              }
+            }
+          }
+        } catch (guardErr) {
+          console.warn("AppGuard監視開始失敗:", guardErr);
+        }
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "セッション開始に失敗しました"
@@ -277,6 +320,49 @@ export default function FocusPage() {
     setActionLoading(true);
     setError(null);
     try {
+      const endedSessionId = session?.session_id;
+
+      // AppGuard: 監視停止 + データ同期
+      if (isNative() && endedSessionId) {
+        try {
+          // ブリーチログ取得 & 監視停止
+          const breachEvents = await stopAppMonitoring();
+          await disableHardBlock();
+
+          // ブリーチデータをサーバーに同期
+          if (breachEvents.length > 0) {
+            await syncBreaches(
+              endedSessionId,
+              breachEvents.map((b) => ({
+                package_name: b.packageName,
+                app_name: b.appName,
+                breach_duration_ms: b.breachDurationMs,
+                occurred_at: new Date(b.occurredAt).toISOString(),
+              })),
+            );
+          }
+
+          // 使用時間データを取得 & 同期
+          const endTime = Date.now();
+          const startTime = endTime - (session?.duration_minutes || 60) * 60 * 1000;
+          const usageEntries = await getNativeUsageStats(startTime, endTime);
+          if (usageEntries.length > 0) {
+            await syncAppUsage(
+              endedSessionId,
+              usageEntries.map((e) => ({
+                package_name: e.packageName,
+                app_name: e.appName,
+                foreground_time_ms: e.foregroundTimeMs,
+                period_start: new Date(e.periodStart).toISOString(),
+                period_end: new Date(e.periodEnd).toISOString(),
+              })),
+            );
+          }
+        } catch (guardErr) {
+          console.warn("AppGuardデータ同期失敗:", guardErr);
+        }
+      }
+
       await endFocus();
       setSession(null);
       setRemaining(0);
@@ -896,6 +982,43 @@ export default function FocusPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* AppGuard Links */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <Link href="/focus/app-usage">
+          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-3">
+              <BarChart3 className="h-5 w-5 text-blue-400" />
+              <div>
+                <p className="font-medium text-sm">アプリ使用時間</p>
+                <p className="text-xs text-muted-foreground">使用状況を確認</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/focus/blocked-apps">
+          <Card className="hover:border-primary/50 transition-colors cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-3">
+              <Shield className="h-5 w-5 text-red-400" />
+              <div>
+                <p className="font-medium text-sm">ブロックアプリ</p>
+                <p className="text-xs text-muted-foreground">制限アプリを管理</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+        <Card className="border-dashed">
+          <CardContent className="p-4 flex items-center gap-3">
+            <Smartphone className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-medium text-sm text-muted-foreground">AppGuard</p>
+              <p className="text-xs text-muted-foreground">
+                {isNative() ? "ネイティブ監視有効" : "ネイティブアプリで利用可能"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Session History */}
       <Card>

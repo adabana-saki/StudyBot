@@ -584,3 +584,40 @@ class EventPublisher:
                 "guild_id": guild_id,
             },
         )
+
+    # Phase 11: AppGuard
+    async def emit_app_breach(
+        self,
+        *,
+        user_id: int,
+        session_id: int,
+        package_name: str,
+        app_name: str = "",
+        breach_duration_ms: int = 0,
+    ) -> None:
+        await self._emit(
+            "app_breach",
+            {
+                "user_id": user_id,
+                "session_id": session_id,
+                "package_name": package_name,
+                "app_name": app_name,
+                "breach_duration_ms": breach_duration_ms,
+            },
+        )
+
+    async def emit_app_usage_sync(
+        self,
+        *,
+        user_id: int,
+        session_id: int | None = None,
+        entry_count: int = 0,
+    ) -> None:
+        await self._emit(
+            "app_usage_sync",
+            {
+                "user_id": user_id,
+                "session_id": session_id,
+                "entry_count": entry_count,
+            },
+        )

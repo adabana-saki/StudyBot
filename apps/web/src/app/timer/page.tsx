@@ -3,8 +3,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { isAuthenticated } from "@/lib/auth";
-import { startSession, endSession } from "@/lib/api";
-import { scheduleLocalNotification } from "@/lib/native";
+import { startSession, endSession, getBlockedApps, syncAppUsage, syncBreaches } from "@/lib/api";
+import {
+  scheduleLocalNotification,
+  isNative,
+  startAppMonitoring,
+  stopAppMonitoring,
+  getNativeUsageStats,
+} from "@/lib/native";
 import GuestBottomNav from "@/components/GuestBottomNav";
 import {
   Play,
@@ -20,6 +26,7 @@ import {
   Flame,
   Zap,
   Settings2,
+  Shield,
 } from "lucide-react";
 
 // ---------- 型定義 ----------
@@ -95,6 +102,8 @@ export default function TimerPage() {
   const [auth, setAuth] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const [appGuardActive, setAppGuardActive] = useState(false);
+  const sessionIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     setAuth(isAuthenticated());
@@ -122,7 +131,7 @@ export default function TimerPage() {
     };
   }, [state]);
 
-  const handleComplete = useCallback(() => {
+  const handleComplete = useCallback(async () => {
     const duration = totalSeconds;
     saveSession({
       date: new Date().toISOString(),
@@ -133,6 +142,49 @@ export default function TimerPage() {
 
     // API: end session (study_logs are created server-side)
     if (auth && mode === "focus") {
+      // AppGuard: 監視停止 + データ同期
+      if (appGuardActive && isNative()) {
+        try {
+          const breachEvents = await stopAppMonitoring();
+          const sid = sessionIdRef.current;
+
+          if (sid && breachEvents.length > 0) {
+            await syncBreaches(
+              sid,
+              breachEvents.map((b) => ({
+                package_name: b.packageName,
+                app_name: b.appName,
+                breach_duration_ms: b.breachDurationMs,
+                occurred_at: new Date(b.occurredAt).toISOString(),
+              })),
+            );
+          }
+
+          // 使用時間データ取得 & 同期
+          const endTime = Date.now();
+          const usageEntries = await getNativeUsageStats(
+            startTimeRef.current,
+            endTime,
+          );
+          if (sid && usageEntries.length > 0) {
+            await syncAppUsage(
+              sid,
+              usageEntries.map((e) => ({
+                package_name: e.packageName,
+                app_name: e.appName,
+                foreground_time_ms: e.foregroundTimeMs,
+                period_start: new Date(e.periodStart).toISOString(),
+                period_end: new Date(e.periodEnd).toISOString(),
+              })),
+            );
+          }
+        } catch (guardErr) {
+          console.warn("AppGuardデータ同期失敗:", guardErr);
+        }
+        setAppGuardActive(false);
+        sessionIdRef.current = null;
+      }
+
       endSession().catch(() => {});
     }
 
@@ -159,25 +211,56 @@ export default function TimerPage() {
     }
     setState("idle");
     setTodayStats(getTodayStats());
-  }, [mode, totalSeconds, focusMinutes, breakMinutes, auth]);
+  }, [mode, totalSeconds, focusMinutes, breakMinutes, auth, appGuardActive]);
 
-  const start = () => {
+  const start = async () => {
     startTimeRef.current = Date.now();
     setState("running");
 
     // API: start session
     if (auth && mode === "focus") {
-      startSession({
-        session_type: "pomodoro",
-        duration_minutes: mode === "focus" ? focusMinutes : breakMinutes,
-        topic: "",
-      }).catch(() => {});
+      try {
+        const session = await startSession({
+          session_type: "pomodoro",
+          duration_minutes: focusMinutes,
+          topic: "",
+        });
+        sessionIdRef.current = session.id;
+
+        // AppGuard: ネイティブ環境でアプリ監視開始
+        if (isNative()) {
+          try {
+            const blockedApps = await getBlockedApps();
+            const blockedPkgs = blockedApps.map((a) => a.package_name);
+            if (blockedPkgs.length > 0) {
+              await startAppMonitoring(session.id, blockedPkgs);
+              setAppGuardActive(true);
+            }
+          } catch (guardErr) {
+            console.warn("AppGuard監視開始失敗:", guardErr);
+          }
+        }
+      } catch {
+        // セッション作成失敗してもタイマーは動かす
+        sessionIdRef.current = null;
+      }
     }
   };
 
   const pause = () => setState("paused");
 
-  const reset = () => {
+  const reset = async () => {
+    // AppGuard: リセット時も監視を停止
+    if (appGuardActive && isNative()) {
+      try {
+        await stopAppMonitoring();
+      } catch {
+        // ignore
+      }
+      setAppGuardActive(false);
+      sessionIdRef.current = null;
+    }
+
     setState("idle");
     const sec = (mode === "focus" ? focusMinutes : breakMinutes) * 60;
     setRemaining(sec);
@@ -330,6 +413,14 @@ export default function TimerPage() {
             休憩
           </button>
         </div>
+
+        {/* AppGuard indicator */}
+        {appGuardActive && state === "running" && (
+          <div className="flex items-center gap-1.5 mb-4 px-3 py-1.5 rounded-full glass text-xs text-emerald-400 animate-fade-in-up">
+            <Shield className="h-3.5 w-3.5" />
+            AppGuard 監視中
+          </div>
+        )}
 
         {/* Timer circle */}
         <div className={`relative w-72 h-72 mb-8 animate-fade-in-up animate-delay-300 ${state === "running" ? "animate-breathe" : ""}`}>

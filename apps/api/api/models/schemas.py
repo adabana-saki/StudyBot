@@ -759,3 +759,94 @@ class ItemPriceHistoryResponse(BaseModel):
     max_price: int
     volume: int
     recorded_date: date
+
+
+# === AppGuard ===
+class AppUsageEntry(BaseModel):
+    """アプリ使用ログエントリ"""
+
+    package_name: str
+    app_name: str = ""
+    foreground_time_ms: int
+    period_start: datetime
+    period_end: datetime
+
+
+class AppUsageSyncRequest(BaseModel):
+    """アプリ使用データ一括同期リクエスト"""
+
+    session_id: int | None = None
+    entries: list[AppUsageEntry]
+
+
+class AppUsageLogResponse(BaseModel):
+    """アプリ使用ログレスポンス"""
+
+    id: int
+    user_id: int
+    session_id: int | None = None
+    package_name: str
+    app_name: str = ""
+    foreground_time_ms: int
+    period_start: datetime
+    period_end: datetime
+    synced_at: datetime
+
+
+class AppBreachEntry(BaseModel):
+    """ブリーチイベントエントリ"""
+
+    package_name: str
+    app_name: str = ""
+    breach_duration_ms: int
+    occurred_at: datetime
+
+
+class AppBreachSyncRequest(BaseModel):
+    """ブリーチイベント一括同期リクエスト"""
+
+    session_id: int
+    breaches: list[AppBreachEntry]
+
+
+class AppBreachEventResponse(BaseModel):
+    """ブリーチイベントレスポンス"""
+
+    id: int
+    user_id: int
+    session_id: int
+    package_name: str
+    app_name: str = ""
+    breach_duration_ms: int
+    occurred_at: datetime
+    created_at: datetime
+
+
+class BlockedAppRequest(BaseModel):
+    """ブロックアプリ追加リクエスト"""
+
+    package_name: str = Field(min_length=1, max_length=256)
+    app_name: str = ""
+    category: str = "custom"
+
+
+class BlockedAppResponse(BaseModel):
+    """ブロックアプリレスポンス"""
+
+    id: int
+    user_id: int
+    package_name: str
+    app_name: str = ""
+    category: str = "custom"
+    added_at: datetime
+
+
+class AppGuardSummary(BaseModel):
+    """AppGuardダッシュボードサマリー"""
+
+    total_usage_ms: int = 0
+    top_apps: list[dict] = []
+    breach_count: int = 0
+    total_breach_ms: int = 0
+    blocked_app_count: int = 0
+    native_block_mode: str = "off"

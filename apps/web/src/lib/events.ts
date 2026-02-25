@@ -30,6 +30,9 @@ export const EVENT_TYPES = {
   ROOM_JOIN: "room_join",
   ROOM_LEAVE: "room_leave",
   ROOM_GOAL_REACHED: "room_goal_reached",
+  // Phase 11: AppGuard
+  APP_BREACH: "app_breach",
+  APP_USAGE_SYNC: "app_usage_sync",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
@@ -123,4 +126,7 @@ export const EVENT_LABELS: Record<string, { label: string; icon: string; color: 
   room_join: { label: "ルーム参加", icon: "🚪", color: "text-emerald-400" },
   room_leave: { label: "ルーム退出", icon: "🚪", color: "text-emerald-300" },
   room_goal_reached: { label: "目標達成", icon: "🎉", color: "text-emerald-500" },
+  // Phase 11: AppGuard
+  app_breach: { label: "アプリ違反", icon: "⚠️", color: "text-orange-400" },
+  app_usage_sync: { label: "使用データ同期", icon: "📱", color: "text-blue-400" },
 };

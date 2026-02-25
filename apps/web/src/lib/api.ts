@@ -1223,3 +1223,99 @@ export function getMyFleaListings(): Promise<MarketListing[]> {
 export function getItemPriceHistory(itemId: number, days = 30): Promise<ItemPriceEntry[]> {
   return fetchAPI<ItemPriceEntry[]>(`/api/market/flea/items/${itemId}/price-history?days=${days}`);
 }
+
+// === AppGuard ===
+
+export interface AppUsageLog {
+  id: number;
+  user_id: number;
+  session_id: number | null;
+  package_name: string;
+  app_name: string;
+  foreground_time_ms: number;
+  period_start: string;
+  period_end: string;
+  synced_at: string;
+}
+
+export interface AppBreachEvent {
+  id: number;
+  user_id: number;
+  session_id: number;
+  package_name: string;
+  app_name: string;
+  breach_duration_ms: number;
+  occurred_at: string;
+  created_at: string;
+}
+
+export interface BlockedApp {
+  id: number;
+  user_id: number;
+  package_name: string;
+  app_name: string;
+  category: string;
+  added_at: string;
+}
+
+export interface AppGuardSummary {
+  total_usage_ms: number;
+  top_apps: { package_name: string; app_name: string; total_ms: number }[];
+  breach_count: number;
+  total_breach_ms: number;
+  blocked_app_count: number;
+  native_block_mode: string;
+}
+
+export function syncAppUsage(
+  sessionId: number | null,
+  entries: { package_name: string; app_name: string; foreground_time_ms: number; period_start: string; period_end: string }[]
+): Promise<{ synced: number }> {
+  return fetchAPI("/api/focus/app-guard/usage/sync", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, entries }),
+  });
+}
+
+export function getAppUsageHistory(limit = 20, offset = 0): Promise<PaginatedResponse<AppUsageLog>> {
+  return fetchAPI(`/api/focus/app-guard/usage?limit=${limit}&offset=${offset}`);
+}
+
+export function getSessionUsage(sessionId: number): Promise<AppUsageLog[]> {
+  return fetchAPI<AppUsageLog[]>(`/api/focus/app-guard/usage/session/${sessionId}`);
+}
+
+export function syncBreaches(
+  sessionId: number,
+  breaches: { package_name: string; app_name: string; breach_duration_ms: number; occurred_at: string }[]
+): Promise<{ synced: number }> {
+  return fetchAPI("/api/focus/app-guard/breaches/sync", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, breaches }),
+  });
+}
+
+export function getBreachHistory(limit = 20, offset = 0): Promise<PaginatedResponse<AppBreachEvent>> {
+  return fetchAPI(`/api/focus/app-guard/breaches?limit=${limit}&offset=${offset}`);
+}
+
+export function getBlockedApps(): Promise<BlockedApp[]> {
+  return fetchAPI<BlockedApp[]>("/api/focus/app-guard/blocked-apps");
+}
+
+export function addBlockedApp(packageName: string, appName = "", category = "custom"): Promise<BlockedApp> {
+  return fetchAPI("/api/focus/app-guard/blocked-apps", {
+    method: "POST",
+    body: JSON.stringify({ package_name: packageName, app_name: appName, category }),
+  });
+}
+
+export function removeBlockedApp(packageName: string): Promise<{ deleted: string }> {
+  return fetchAPI(`/api/focus/app-guard/blocked-apps/${encodeURIComponent(packageName)}`, {
+    method: "DELETE",
+  });
+}
+
+export function getAppGuardSummary(days = 7): Promise<AppGuardSummary> {
+  return fetchAPI<AppGuardSummary>(`/api/focus/app-guard/summary?days=${days}`);
+}

@@ -129,3 +129,98 @@ export async function hideSplashScreen() {
   await SplashScreen.hide();
 }
 
+// ---------- AppGuard ----------
+
+import type {
+  PermissionStatus,
+  InstalledApp,
+  AppUsageEntry,
+  AppBreachEvent,
+} from "@/plugins/app-guard/definitions";
+
+export type { PermissionStatus, InstalledApp, AppUsageEntry, AppBreachEvent };
+
+export async function getAppGuardPermissions(): Promise<PermissionStatus> {
+  if (!isNative()) {
+    return { usageStats: false, overlay: false, accessibility: false };
+  }
+  const { AppGuard } = await import("@/plugins/app-guard");
+  return AppGuard.checkPermissions();
+}
+
+export async function requestUsageStatsPermission(): Promise<boolean> {
+  if (!isNative()) return false;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  const result = await AppGuard.requestUsageStatsPermission();
+  return result.granted;
+}
+
+export async function requestOverlayPermission(): Promise<boolean> {
+  if (!isNative()) return false;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  const result = await AppGuard.requestOverlayPermission();
+  return result.granted;
+}
+
+export async function openAccessibilitySettings(): Promise<void> {
+  if (!isNative()) return;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  await AppGuard.openAccessibilitySettings();
+}
+
+export async function getInstalledApps(): Promise<InstalledApp[]> {
+  if (!isNative()) return [];
+  const { AppGuard } = await import("@/plugins/app-guard");
+  const result = await AppGuard.getInstalledApps();
+  return result.apps;
+}
+
+export async function getNativeUsageStats(
+  startTime: number,
+  endTime: number,
+): Promise<AppUsageEntry[]> {
+  if (!isNative()) return [];
+  const { AppGuard } = await import("@/plugins/app-guard");
+  const result = await AppGuard.getUsageStats({ startTime, endTime });
+  return result.entries;
+}
+
+export async function startAppMonitoring(
+  sessionId: number,
+  blockedPackages: string[],
+): Promise<void> {
+  if (!isNative()) return;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  await AppGuard.startMonitoring({ sessionId, blockedPackages });
+}
+
+export async function stopAppMonitoring(): Promise<AppBreachEvent[]> {
+  if (!isNative()) return [];
+  const { AppGuard } = await import("@/plugins/app-guard");
+  const result = await AppGuard.getBreachLog();
+  await AppGuard.stopMonitoring();
+  return result.breaches;
+}
+
+export async function enableHardBlock(
+  sessionId: number,
+  blockedPackages: string[],
+  blockMessage: string,
+  challengeMode: string,
+): Promise<void> {
+  if (!isNative()) return;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  await AppGuard.enableHardBlock({
+    sessionId,
+    blockedPackages,
+    blockMessage,
+    challengeMode,
+  });
+}
+
+export async function disableHardBlock(): Promise<void> {
+  if (!isNative()) return;
+  const { AppGuard } = await import("@/plugins/app-guard");
+  await AppGuard.disableHardBlock();
+}
+

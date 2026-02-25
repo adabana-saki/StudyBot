@@ -1494,6 +1494,68 @@ class DatabaseManager:
                     """
                 )
 
+            # Phase 11: AppGuard テーブル
+            await conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_usage_logs (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    session_id INT REFERENCES phone_lock_sessions(id) ON DELETE SET NULL,
+                    package_name VARCHAR(256) NOT NULL,
+                    app_name VARCHAR(256) NOT NULL DEFAULT '',
+                    foreground_time_ms BIGINT NOT NULL DEFAULT 0,
+                    period_start TIMESTAMPTZ NOT NULL,
+                    period_end TIMESTAMPTZ NOT NULL,
+                    synced_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS app_breach_events (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    session_id INT NOT NULL REFERENCES phone_lock_sessions(id) ON DELETE CASCADE,
+                    package_name VARCHAR(256) NOT NULL,
+                    app_name VARCHAR(256) NOT NULL DEFAULT '',
+                    breach_duration_ms BIGINT NOT NULL DEFAULT 0,
+                    occurred_at TIMESTAMPTZ NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE TABLE IF NOT EXISTS blocked_app_lists (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT NOT NULL REFERENCES users(user_id),
+                    package_name VARCHAR(256) NOT NULL,
+                    app_name VARCHAR(256) NOT NULL DEFAULT '',
+                    category VARCHAR(50) DEFAULT 'custom',
+                    added_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE (user_id, package_name)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_app_usage_logs_user
+                    ON app_usage_logs(user_id, period_start);
+                CREATE INDEX IF NOT EXISTS idx_app_usage_logs_session
+                    ON app_usage_logs(session_id);
+                CREATE INDEX IF NOT EXISTS idx_app_breach_events_user
+                    ON app_breach_events(user_id, occurred_at);
+                CREATE INDEX IF NOT EXISTS idx_app_breach_events_session
+                    ON app_breach_events(session_id);
+                CREATE INDEX IF NOT EXISTS idx_blocked_app_lists_user
+                    ON blocked_app_lists(user_id);
+                """
+            )
+
+            # Phase 11: user_lock_settings にネイティブブロックモード追加
+            await conn.execute(
+                """
+                DO $$
+                BEGIN
+                    ALTER TABLE user_lock_settings
+                        ADD COLUMN native_block_mode VARCHAR(20) DEFAULT 'off';
+                EXCEPTION
+                    WHEN duplicate_column THEN NULL;
+                END $$;
+                """
+            )
+
             logger.info("テーブル作成完了")
 
     async def close(self) -> None:

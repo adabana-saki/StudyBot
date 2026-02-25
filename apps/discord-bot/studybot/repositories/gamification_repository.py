@@ -276,6 +276,27 @@ class GamificationRepository(BaseRepository):
                 cutoff,
             )
 
+            # AppGuard: ブリーチ回数 & 監視対象セッション数
+            breach_data = await conn.fetchrow(
+                """
+                SELECT COUNT(*) AS breach_count
+                FROM app_breach_events
+                WHERE user_id = $1 AND occurred_at >= $2
+                """,
+                user_id,
+                cutoff,
+            )
+
+            monitored_sessions = await conn.fetchval(
+                """
+                SELECT COUNT(DISTINCT session_id)
+                FROM app_breach_events
+                WHERE user_id = $1 AND occurred_at >= $2
+                """,
+                user_id,
+                cutoff,
+            ) or 0
+
         pomo_total = pomo["total"] if pomo else 0
         focus_total = focus["total"] if focus else 0
         session_total = pomo_total + focus_total
@@ -290,6 +311,8 @@ class GamificationRepository(BaseRepository):
             "lock_completed": lock["completed"] if lock else 0,
             "study_days": consistency["study_days"] if consistency else 0,
             "period_days": days,
+            "breach_count": breach_data["breach_count"] if breach_data else 0,
+            "monitored_sessions": monitored_sessions,
         }
 
     # --- 自己ベスト ---

@@ -177,7 +177,16 @@ class GamificationManager:
     # --- フォーカススコア ---
 
     async def calculate_focus_score(self, user_id: int) -> dict:
-        """フォーカススコアを計算 (0-100)"""
+        """フォーカススコアを計算 (0-100)
+
+        5要素:
+          completion_rate * 30 + lock_success * 20 + consistency * 20
+          + session_quality * 15 + app_discipline * 15 = 100
+
+        app_discipline:
+          ネイティブ未使用 (breach_count=0, monitored_sessions=0) → 1.0 (ペナルティなし)
+          監視あり → 1.0 - min(1.0, breach_count / (monitored_sessions * 3))
+        """
         data = await self.repository.get_focus_score_data(user_id)
 
         # セッション完了率 (ポモドーロ + フォーカス)
@@ -198,11 +207,23 @@ class GamificationManager:
         else:
             consistency = 0.0
 
-        # セッション質 (完了率を再利用、データが十分あれば)
+        # セッション質 (完了率を再利用)
         session_quality = completion_rate
 
+        # アプリ規律 (AppGuard)
+        breach_count = data.get("breach_count", 0)
+        monitored_sessions = data.get("monitored_sessions", 0)
+        if monitored_sessions > 0:
+            app_discipline = 1.0 - min(1.0, breach_count / (monitored_sessions * 3))
+        else:
+            app_discipline = 1.0  # ネイティブ未使用ユーザーはペナルティなし
+
         score = int(
-            completion_rate * 35 + lock_success * 25 + consistency * 25 + session_quality * 15
+            completion_rate * 30
+            + lock_success * 20
+            + consistency * 20
+            + session_quality * 15
+            + app_discipline * 15
         )
         score = min(100, max(0, score))
 
@@ -220,6 +241,7 @@ class GamificationManager:
                 "lock_success": round(lock_success * 100),
                 "consistency": round(consistency * 100),
                 "session_quality": round(session_quality * 100),
+                "app_discipline": round(app_discipline * 100),
             },
         }
 
