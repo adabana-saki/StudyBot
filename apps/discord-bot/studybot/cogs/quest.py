@@ -75,7 +75,7 @@ class QuestCog(commands.Cog):
                     inline=False,
                 )
         except Exception:
-            pass
+            logger.warning("クエストチェイン取得失敗", exc_info=True)
 
         embed.set_footer(text="クエスト完了後、/quest claim <ID> で報酬を受け取れます")
         await interaction.followup.send(embed=embed)

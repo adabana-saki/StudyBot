@@ -62,7 +62,7 @@ async def call_openai(
                 logger.debug(f"OpenAI キャッシュヒット: {key[:20]}")
                 return cached
         except Exception:
-            pass  # キャッシュ失敗は無視してAPIコールへ
+            logger.debug("Redisキャッシュ読込失敗", exc_info=True)
 
     try:
         client = _get_client()
@@ -82,7 +82,7 @@ async def call_openai(
             try:
                 await _redis.set(key, result, ex=CACHE_TTL_SECONDS)
             except Exception:
-                pass  # キャッシュ保存失敗は無視
+                logger.debug("Redisキャッシュ保存失敗", exc_info=True)
 
         return result
     except Exception as e:

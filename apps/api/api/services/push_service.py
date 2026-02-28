@@ -54,7 +54,7 @@ class PushNotificationService:
 
                 firebase_admin.delete_app(self._app)
             except Exception:
-                pass
+                logger.warning("Firebase Admin SDKクリーンアップ失敗", exc_info=True)
             self._app = None
             self._initialized = False
 

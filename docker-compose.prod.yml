@@ -1,0 +1,202 @@
+# Production Docker Compose
+# Usage: docker compose -f docker-compose.prod.yml up -d
+#
+# 必須環境変数 (.env.production):
+#   POSTGRES_PASSWORD, DISCORD_TOKEN, API_SECRET_KEY,
+#   DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_REDIRECT_URI,
+#   WEB_BASE_URL, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_DISCORD_CLIENT_ID
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: studybot-redis
+    # 本番: ポート非公開（内部ネットワークのみ）
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+        --maxmemory 256mb
+        --maxmemory-policy allkeys-lru
+        --appendonly yes
+        --requirepass ${REDIS_PASSWORD:-}
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - studybot-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: studybot-postgres
+    environment:
+      POSTGRES_USER: studybot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: studybot
+    # 本番: ポート非公開（内部ネットワークのみ）
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: >
+      postgres
+        -c shared_buffers=256MB
+        -c effective_cache_size=512MB
+        -c max_connections=100
+        -c work_mem=4MB
+        -c maintenance_work_mem=64MB
+        -c wal_buffers=16MB
+        -c checkpoint_completion_target=0.9
+        -c random_page_cost=1.1
+        -c log_min_duration_statement=1000
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studybot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - studybot-network
+
+  bot:
+    build:
+      context: ./apps/discord-bot
+      dockerfile: Dockerfile
+    container_name: studybot-bot
+    restart: always
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      DATABASE_URL: postgresql://studybot:${POSTGRES_PASSWORD}@postgres:5432/studybot
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_MODEL_HEAVY: ${OPENAI_MODEL_HEAVY:-gpt-4o}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      DB_POOL_MIN_SIZE: 3
+      DB_POOL_MAX_SIZE: 15
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      GUILD_ID: ${GUILD_ID:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - studybot-network
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: studybot-api
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://studybot:${POSTGRES_PASSWORD}@postgres:5432/studybot
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_REDIRECT_URI: ${DISCORD_REDIRECT_URI}
+      WEB_BASE_URL: ${WEB_BASE_URL}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-}@redis:6379/0
+      FIREBASE_CREDENTIALS_PATH: ${FIREBASE_CREDENTIALS_PATH:-}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-}
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+    # 本番: リバースプロキシ経由。直接公開しない場合は expose に変更
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - studybot-network
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID}
+    container_name: studybot-web
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_DISCORD_CLIENT_ID: ${NEXT_PUBLIC_DISCORD_CLIENT_ID}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - studybot-network
+
+networks:
+  studybot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
