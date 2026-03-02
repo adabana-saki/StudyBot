@@ -417,9 +417,7 @@ class NudgeManager:
         """計算チャレンジの回答を検証（全問正解で成功）"""
         if len(answers) != len(problems):
             return {"correct": False, "score": 0, "total": len(problems)}
-        correct_count = sum(
-            1 for p, a in zip(problems, answers, strict=True) if p["answer"] == a
-        )
+        correct_count = sum(1 for p, a in zip(problems, answers, strict=True) if p["answer"] == a)
         return {
             "correct": correct_count == len(problems),
             "score": correct_count,

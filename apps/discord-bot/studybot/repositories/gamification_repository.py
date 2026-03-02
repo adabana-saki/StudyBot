@@ -287,15 +287,18 @@ class GamificationRepository(BaseRepository):
                 cutoff,
             )
 
-            monitored_sessions = await conn.fetchval(
-                """
+            monitored_sessions = (
+                await conn.fetchval(
+                    """
                 SELECT COUNT(DISTINCT session_id)
                 FROM app_breach_events
                 WHERE user_id = $1 AND occurred_at >= $2
                 """,
-                user_id,
-                cutoff,
-            ) or 0
+                    user_id,
+                    cutoff,
+                )
+                or 0
+            )
 
         pomo_total = pomo["total"] if pomo else 0
         focus_total = focus["total"] if focus else 0

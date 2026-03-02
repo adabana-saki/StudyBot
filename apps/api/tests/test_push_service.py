@@ -81,9 +81,7 @@ class TestPushServiceSend:
     @pytest.mark.asyncio
     async def test_send_when_not_initialized(self, push_service):
         """未初期化状態では送信スキップ"""
-        result = await push_service.send_to_user(
-            user_id=123, title="Test", body="Body"
-        )
+        result = await push_service.send_to_user(user_id=123, title="Test", body="Body")
         assert result == 0
 
     @pytest.mark.asyncio
@@ -93,9 +91,7 @@ class TestPushServiceSend:
         push_service._initialized = True
         conn.fetch.return_value = []
 
-        result = await push_service.send_to_user(
-            user_id=123, title="Test", body="Body"
-        )
+        result = await push_service.send_to_user(user_id=123, title="Test", body="Body")
         assert result == 0
 
     @pytest.mark.asyncio
@@ -146,17 +142,13 @@ class TestPushServiceSend:
         ):
             mock_messaging.Message = MagicMock()
             mock_messaging.Notification = MagicMock()
-            mock_messaging.UnregisteredError = type(
-                "UnregisteredError", (Exception,), {}
-            )
+            mock_messaging.UnregisteredError = type("UnregisteredError", (Exception,), {})
             mock_messaging.send.side_effect = [
                 "ok",
                 mock_messaging.UnregisteredError("unregistered"),
             ]
 
-            result = await push_service.send_to_user(
-                user_id=123, title="Test", body="Body"
-            )
+            result = await push_service.send_to_user(user_id=123, title="Test", body="Body")
 
         assert result == 1
         # 無効トークン無効化 + 通知ログ記録
@@ -205,16 +197,12 @@ class TestPushServiceModuleFunctions:
 
         pool, _ = mock_db_pool
 
-        with patch.object(
-            mod.PushNotificationService, "initialize", new_callable=AsyncMock
-        ):
+        with patch.object(mod.PushNotificationService, "initialize", new_callable=AsyncMock):
             svc = await mod.init_push_service(pool)
             assert svc is not None
             assert mod.get_push_service() is svc
 
-        with patch.object(
-            mod.PushNotificationService, "close", new_callable=AsyncMock
-        ):
+        with patch.object(mod.PushNotificationService, "close", new_callable=AsyncMock):
             await mod.close_push_service()
 
         with pytest.raises(RuntimeError, match="未初期化"):

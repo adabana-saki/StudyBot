@@ -104,20 +104,14 @@ def path_embed(title: str, description: str = "") -> discord.Embed:
 
 def sanctuary_embed(title: str, description: str = "") -> discord.Embed:
     """サンクチュアリEmbed"""
-    return discord.Embed(
-        title=f"🌿 {title}", description=description, color=COLORS["sanctuary"]
-    )
+    return discord.Embed(title=f"🌿 {title}", description=description, color=COLORS["sanctuary"])
 
 
 def expedition_embed(title: str, description: str = "") -> discord.Embed:
     """エクスペディションEmbed"""
-    return discord.Embed(
-        title=f"🗺️ {title}", description=description, color=COLORS["expedition"]
-    )
+    return discord.Embed(title=f"🗺️ {title}", description=description, color=COLORS["expedition"])
 
 
 def forge_embed(title: str, description: str = "") -> discord.Embed:
     """フォージEmbed"""
-    return discord.Embed(
-        title=f"🔨 {title}", description=description, color=COLORS["forge"]
-    )
+    return discord.Embed(title=f"🔨 {title}", description=description, color=COLORS["forge"])

@@ -270,9 +270,7 @@ async def get_summary(
     pool = get_pool()
 
     async with pool.acquire() as conn:
-        cutoff = datetime.now(UTC).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        cutoff = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0)
         from datetime import timedelta
 
         cutoff = cutoff - timedelta(days=days)

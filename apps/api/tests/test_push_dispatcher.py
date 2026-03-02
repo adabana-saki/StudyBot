@@ -32,10 +32,12 @@ class TestPushDispatcherHandleEvent:
         """level_upイベントでプッシュ通知送信"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "level_up",
-            "data": {"user_id": 123, "new_level": 5, "guild_id": 999},
-        })
+        event = json.dumps(
+            {
+                "type": "level_up",
+                "data": {"user_id": 123, "new_level": 5, "guild_id": 999},
+            }
+        )
 
         await dispatcher._handle_event(event)
 
@@ -52,15 +54,17 @@ class TestPushDispatcherHandleEvent:
         """achievement_unlockイベント"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "achievement_unlock",
-            "data": {
-                "user_id": 456,
-                "achievement_emoji": "🏆",
-                "achievement_name": "100時間学習",
-                "guild_id": 999,
-            },
-        })
+        event = json.dumps(
+            {
+                "type": "achievement_unlock",
+                "data": {
+                    "user_id": 456,
+                    "achievement_emoji": "🏆",
+                    "achievement_name": "100時間学習",
+                    "guild_id": 999,
+                },
+            }
+        )
 
         await dispatcher._handle_event(event)
 
@@ -74,15 +78,17 @@ class TestPushDispatcherHandleEvent:
         """pomodoro_completeイベント"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "pomodoro_complete",
-            "data": {
-                "user_id": 789,
-                "topic": "数学",
-                "work_minutes": 25,
-                "guild_id": 999,
-            },
-        })
+        event = json.dumps(
+            {
+                "type": "pomodoro_complete",
+                "data": {
+                    "user_id": 789,
+                    "topic": "数学",
+                    "work_minutes": 25,
+                    "guild_id": 999,
+                },
+            }
+        )
 
         await dispatcher._handle_event(event)
 
@@ -95,10 +101,12 @@ class TestPushDispatcherHandleEvent:
         """app_breachイベント"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "app_breach",
-            "data": {"user_id": 101, "guild_id": 999},
-        })
+        event = json.dumps(
+            {
+                "type": "app_breach",
+                "data": {"user_id": 101, "guild_id": 999},
+            }
+        )
 
         await dispatcher._handle_event(event)
 
@@ -111,10 +119,12 @@ class TestPushDispatcherHandleEvent:
         """未対応イベント種別はスキップ"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "unknown_event",
-            "data": {"user_id": 123},
-        })
+        event = json.dumps(
+            {
+                "type": "unknown_event",
+                "data": {"user_id": 123},
+            }
+        )
 
         await dispatcher._handle_event(event)
         mock_push_service.send_to_user.assert_not_called()
@@ -124,10 +134,12 @@ class TestPushDispatcherHandleEvent:
         """user_idなしイベントはスキップ"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "level_up",
-            "data": {"new_level": 5},
-        })
+        event = json.dumps(
+            {
+                "type": "level_up",
+                "data": {"new_level": 5},
+            }
+        )
 
         await dispatcher._handle_event(event)
         mock_push_service.send_to_user.assert_not_called()
@@ -137,10 +149,12 @@ class TestPushDispatcherHandleEvent:
         """テンプレート変数不足はスキップ"""
         dispatcher = PushDispatcher(mock_redis, mock_push_service)
 
-        event = json.dumps({
-            "type": "level_up",
-            "data": {"user_id": 123},  # new_levelが足りない
-        })
+        event = json.dumps(
+            {
+                "type": "level_up",
+                "data": {"user_id": 123},  # new_levelが足りない
+            }
+        )
 
         await dispatcher._handle_event(event)
         mock_push_service.send_to_user.assert_not_called()

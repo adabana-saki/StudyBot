@@ -47,9 +47,7 @@ TEMPLATES: dict[str, tuple[str, str]] = {
 class PushDispatcher:
     """Redis Pub/Sub → FCMプッシュ通知ディスパッチャー"""
 
-    def __init__(
-        self, redis_conn: redis.Redis, push_service: PushNotificationService
-    ) -> None:
+    def __init__(self, redis_conn: redis.Redis, push_service: PushNotificationService) -> None:
         self.redis = redis_conn
         self.push_service = push_service
         self.pubsub: redis.client.PubSub | None = None

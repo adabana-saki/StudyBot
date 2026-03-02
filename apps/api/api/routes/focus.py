@@ -51,10 +51,14 @@ async def get_focus_status(
         )
 
         # ユーザーのロック設定を取得（ブロックカテゴリ/メッセージ用）
-        settings_row = await conn.fetchrow(
-            "SELECT block_categories, block_message FROM user_lock_settings WHERE user_id = $1",
-            user_id,
-        ) if row else None
+        settings_row = (
+            await conn.fetchrow(
+                "SELECT block_categories, block_message FROM user_lock_settings WHERE user_id = $1",
+                user_id,
+            )
+            if row
+            else None
+        )
 
     if not row:
         return None
@@ -81,9 +85,7 @@ async def get_focus_status(
             else []
         ),
         block_message=(
-            settings_row["block_message"]
-            if settings_row and settings_row["block_message"]
-            else ""
+            settings_row["block_message"] if settings_row and settings_row["block_message"] else ""
         ),
     )
 
@@ -643,12 +645,8 @@ async def generate_challenge(
             problems = []
             for _ in range(config["problems"]):
                 op = random.choice(config["ops"])
-                a = random.randint(
-                    10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1
-                )
-                b = random.randint(
-                    10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1
-                )
+                a = random.randint(10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1)
+                b = random.randint(10 ** (config["min_digits"] - 1), 10 ** config["max_digits"] - 1)
                 if op == "//":
                     b = max(b, 2)
                     a = a * b
@@ -744,7 +742,11 @@ async def verify_challenge(
                 detail="チャレンジが見つからないか、既に検証済みです。",
             )
 
-        problems = json.loads(attempt["problems"]) if isinstance(attempt["problems"], str) else attempt["problems"]
+        problems = (
+            json.loads(attempt["problems"])
+            if isinstance(attempt["problems"], str)
+            else attempt["problems"]
+        )
         answers = request.answers
         ch_type = attempt["challenge_type"]
 
@@ -753,9 +755,7 @@ async def verify_challenge(
                 correct = False
                 score = 0
             else:
-                score = sum(
-                    1 for p, a in zip(problems, answers) if p["answer"] == a
-                )
+                score = sum(1 for p, a in zip(problems, answers) if p["answer"] == a)
                 correct = score == len(problems)
 
             await conn.execute(
@@ -771,9 +771,7 @@ async def verify_challenge(
 
             dismissed_until = None
             if correct:
-                dismissed_until = datetime.now(UTC) + timedelta(
-                    seconds=CHALLENGE_DISMISS_COOLDOWN
-                )
+                dismissed_until = datetime.now(UTC) + timedelta(seconds=CHALLENGE_DISMISS_COOLDOWN)
 
             return ChallengeVerifyResponse(
                 correct=correct,
@@ -805,9 +803,7 @@ async def verify_challenge(
 
             dismissed_until = None
             if correct:
-                dismissed_until = datetime.now(UTC) + timedelta(
-                    seconds=CHALLENGE_DISMISS_COOLDOWN
-                )
+                dismissed_until = datetime.now(UTC) + timedelta(seconds=CHALLENGE_DISMISS_COOLDOWN)
 
             return ChallengeVerifyResponse(
                 correct=correct,

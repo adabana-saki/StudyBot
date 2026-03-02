@@ -36,60 +36,76 @@ class DashboardLinkView(discord.ui.View):
         super().__init__(timeout=None)
 
         # 1行目: メイン
-        self.add_item(discord.ui.Button(
-            label="ダッシュボードを開く",
-            emoji="🌐",
-            url=f"{base_url}/dashboard",
-            style=discord.ButtonStyle.link,
-        ))
-        self.add_item(discord.ui.Button(
-            label="リーダーボード",
-            emoji="🏆",
-            url=f"{base_url}/leaderboard",
-            style=discord.ButtonStyle.link,
-        ))
-        self.add_item(discord.ui.Button(
-            label="フラッシュカード",
-            emoji="🃏",
-            url=f"{base_url}/flashcards",
-            style=discord.ButtonStyle.link,
-        ))
-        self.add_item(discord.ui.Button(
-            label="To-Do",
-            emoji="✅",
-            url=f"{base_url}/todos",
-            style=discord.ButtonStyle.link,
-        ))
+        self.add_item(
+            discord.ui.Button(
+                label="ダッシュボードを開く",
+                emoji="🌐",
+                url=f"{base_url}/dashboard",
+                style=discord.ButtonStyle.link,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="リーダーボード",
+                emoji="🏆",
+                url=f"{base_url}/leaderboard",
+                style=discord.ButtonStyle.link,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="フラッシュカード",
+                emoji="🃏",
+                url=f"{base_url}/flashcards",
+                style=discord.ButtonStyle.link,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="To-Do",
+                emoji="✅",
+                url=f"{base_url}/todos",
+                style=discord.ButtonStyle.link,
+            )
+        )
 
         # 2行目: サブ
-        self.add_item(discord.ui.Button(
-            label="ウェルネス",
-            emoji="🧘",
-            url=f"{base_url}/wellness",
-            style=discord.ButtonStyle.link,
-            row=1,
-        ))
-        self.add_item(discord.ui.Button(
-            label="フォーカス",
-            emoji="🎯",
-            url=f"{base_url}/focus",
-            style=discord.ButtonStyle.link,
-            row=1,
-        ))
-        self.add_item(discord.ui.Button(
-            label="ショップ",
-            emoji="🏪",
-            url=f"{base_url}/shop",
-            style=discord.ButtonStyle.link,
-            row=1,
-        ))
-        self.add_item(discord.ui.Button(
-            label="投資市場",
-            emoji="📉",
-            url=f"{base_url}/market",
-            style=discord.ButtonStyle.link,
-            row=1,
-        ))
+        self.add_item(
+            discord.ui.Button(
+                label="ウェルネス",
+                emoji="🧘",
+                url=f"{base_url}/wellness",
+                style=discord.ButtonStyle.link,
+                row=1,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="フォーカス",
+                emoji="🎯",
+                url=f"{base_url}/focus",
+                style=discord.ButtonStyle.link,
+                row=1,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="ショップ",
+                emoji="🏪",
+                url=f"{base_url}/shop",
+                style=discord.ButtonStyle.link,
+                row=1,
+            )
+        )
+        self.add_item(
+            discord.ui.Button(
+                label="投資市場",
+                emoji="📉",
+                url=f"{base_url}/market",
+                style=discord.ButtonStyle.link,
+                row=1,
+            )
+        )
 
 
 class DashboardCog(commands.Cog):
@@ -106,10 +122,7 @@ class DashboardCog(commands.Cog):
             description=(
                 "ブラウザでStudyBotの全機能にアクセスできます。\n"
                 "下のボタンから各ページに直接ジャンプ！\n\n"
-                + "\n".join(
-                    f"{emoji} **{name}** — {desc}"
-                    for emoji, name, _, desc in WEB_PAGES
-                )
+                + "\n".join(f"{emoji} **{name}** — {desc}" for emoji, name, _, desc in WEB_PAGES)
             ),
             color=COLORS["primary"],
             url=f"{self.web_url}/dashboard",

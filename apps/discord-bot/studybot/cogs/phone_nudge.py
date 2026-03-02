@@ -691,11 +691,11 @@ class PhoneNudgeCog(commands.Cog):
         new_duration = duration if duration is not None else current["default_duration"]
         new_bet = coin_bet if coin_bet is not None else current["default_coin_bet"]
         new_ch_mode = (
-            challenge_mode if challenge_mode is not None
-            else current.get("challenge_mode", "none")
+            challenge_mode if challenge_mode is not None else current.get("challenge_mode", "none")
         )
         new_ch_diff = (
-            challenge_difficulty if challenge_difficulty is not None
+            challenge_difficulty
+            if challenge_difficulty is not None
             else current.get("challenge_difficulty", 1)
         )
 

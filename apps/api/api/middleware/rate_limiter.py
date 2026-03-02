@@ -31,6 +31,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.window = window
         self._requests: dict[str, list[float]] = defaultdict(list)
         from api.config import settings
+
         self._allowed_origins = {settings.WEB_BASE_URL, "http://localhost:3000"}
 
     def _is_trusted_proxy(self, ip: str) -> bool:

@@ -98,9 +98,7 @@ class StudyLogCog(commands.Cog):
         expedition_cog = self.bot.get_cog("ExpeditionCog")
         if expedition_cog and topic:
             try:
-                await expedition_cog.record_study(
-                    interaction.user.id, topic, duration
-                )
+                await expedition_cog.record_study(interaction.user.id, topic, duration)
             except Exception:
                 logger.debug("Expedition progress failed", exc_info=True)
 
