@@ -65,7 +65,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # ヘルスチェック・OPTIONSプリフライトはスキップ
-        if request.url.path in ("/health", "/") or request.method == "OPTIONS":
+        if request.url.path in ("/health", "/", "/api/status") or request.method == "OPTIONS":
             return await call_next(request)
 
         key = self._get_client_key(request)

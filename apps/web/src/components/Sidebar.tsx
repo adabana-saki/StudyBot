@@ -26,6 +26,7 @@ import {
   MessageCircle,
   Swords,
   DoorOpen,
+  Signal,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -95,6 +96,7 @@ const navCategories: NavCategory[] = [
     items: [
       { href: "/server", label: "サーバー", icon: Server },
       { href: "/profile", label: "プロフィール", icon: User },
+      { href: "/status", label: "システム状態", icon: Signal },
       { href: "/help", label: "ヘルプ", icon: HelpCircle },
     ],
   },

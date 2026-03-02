@@ -1224,6 +1224,29 @@ export function getItemPriceHistory(itemId: number, days = 30): Promise<ItemPric
   return fetchAPI<ItemPriceEntry[]>(`/api/market/flea/items/${itemId}/price-history?days=${days}`);
 }
 
+// === System Status ===
+export interface ComponentStatus {
+  name: string;
+  status: "ok" | "degraded" | "down";
+  latency_ms: number | null;
+  details: Record<string, unknown> | null;
+}
+
+export interface SystemStatus {
+  status: "ok" | "degraded" | "down";
+  version: string;
+  components: ComponentStatus[];
+  checked_at: string;
+}
+
+export function getSystemStatus(): Promise<SystemStatus> {
+  return fetchAPI<SystemStatus>("/api/status");
+}
+
+export function testPushNotification(): Promise<{ sent: number; message: string }> {
+  return fetchAPI("/api/status/ping", { method: "POST" });
+}
+
 // === AppGuard ===
 
 export interface AppUsageLog {

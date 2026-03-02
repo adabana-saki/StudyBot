@@ -37,6 +37,7 @@ from api.routes import (
     shop,
     social,
     stats,
+    status,
     todos,
     wellness,
 )
@@ -144,6 +145,8 @@ app.include_router(rooms.router)
 app.include_router(market.router)
 # Phase 11: AppGuard
 app.include_router(app_guard.router)
+# System Status
+app.include_router(status.router)
 
 
 @app.get("/")

@@ -860,3 +860,22 @@ class AppGuardSummary(BaseModel):
     total_breach_ms: int = 0
     blocked_app_count: int = 0
     native_block_mode: str = "off"
+
+
+# === System Status ===
+class ComponentStatus(BaseModel):
+    """個別コンポーネントのステータス"""
+
+    name: str
+    status: Literal["ok", "degraded", "down"]
+    latency_ms: float | None = None
+    details: dict | None = None
+
+
+class SystemStatusResponse(BaseModel):
+    """システム全体のステータスレスポンス"""
+
+    status: Literal["ok", "degraded", "down"]
+    version: str
+    components: list[ComponentStatus]
+    checked_at: datetime

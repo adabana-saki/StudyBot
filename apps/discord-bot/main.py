@@ -1,11 +1,13 @@
 """StudyBot - AI搭載学習支援Discord Bot"""
 
 import asyncio
+import json
 import logging
 import sys
+from datetime import UTC, datetime
 
 import discord
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 from studybot.config.settings import settings
 from studybot.database.manager import DatabaseManager
@@ -142,10 +144,42 @@ class StudyBot(commands.Bot):
             await self.tree.sync()
             logger.info("グローバルスラッシュコマンド同期完了")
 
+    async def _publish_heartbeat(self) -> None:
+        """Redisにハートビート情報を書き込む"""
+        if not self.redis_client:
+            return
+        try:
+            data = json.dumps(
+                {
+                    "bot_name": str(self.user),
+                    "guild_count": len(self.guilds),
+                    "ws_latency_ms": round(self.latency * 1000, 1),
+                    "updated_at": datetime.now(UTC).isoformat(),
+                },
+                ensure_ascii=False,
+            )
+            await self.redis_client.set("bot:heartbeat", data, ex=90)
+        except Exception as e:
+            logger.warning("ハートビート書き込み失敗: %s", e)
+
+    @tasks.loop(seconds=30)
+    async def heartbeat_loop(self) -> None:
+        """30秒ごとにハートビートを発行"""
+        await self._publish_heartbeat()
+
+    @heartbeat_loop.before_loop
+    async def _before_heartbeat(self) -> None:
+        await self.wait_until_ready()
+
     async def on_ready(self) -> None:
         """Bot接続完了"""
         logger.info(f"Bot起動完了: {self.user} (ID: {self.user.id})")
         logger.info(f"接続サーバー数: {len(self.guilds)}")
+
+        # ハートビート開始
+        await self._publish_heartbeat()
+        if not self.heartbeat_loop.is_running():
+            self.heartbeat_loop.start()
 
         await self.change_presence(
             activity=discord.Activity(
@@ -156,7 +190,12 @@ class StudyBot(commands.Bot):
 
     async def close(self) -> None:
         """シャットダウン処理"""
+        self.heartbeat_loop.cancel()
         if self.redis_client:
+            try:
+                await self.redis_client.redis.delete("bot:heartbeat")
+            except Exception:
+                pass
             await self.redis_client.close()
         await self.db_manager.close()
         await super().close()
