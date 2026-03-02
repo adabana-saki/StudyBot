@@ -170,7 +170,7 @@ class TestPushDispatcherLifecycle:
 
         mock_redis = AsyncMock()
         mock_pubsub = AsyncMock()
-        mock_redis.pubsub.return_value = mock_pubsub
+        mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
         # listen()を即座にキャンセルさせる
         mock_pubsub.listen = MagicMock(return_value=AsyncIterStop())

@@ -107,6 +107,7 @@ class TestStats:
         """自分のプロフィール取得: 正常"""
         _, conn = mock_pool
         conn.fetchrow.side_effect = [
+            {"username": "TestUser", "avatar_url": ""},
             {"xp": 1500, "level": 7, "streak_days": 12},
             {"balance": 350},
         ]
@@ -131,7 +132,7 @@ class TestStats:
     def test_stats_me_no_data(self, client, auth_headers, mock_pool):
         """プロフィール取得: DB未登録ユーザー"""
         _, conn = mock_pool
-        conn.fetchrow.side_effect = [None, None]
+        conn.fetchrow.side_effect = [None, None, None]
         conn.fetchval.return_value = 0
 
         resp = client.get("/api/stats/me", headers=auth_headers)
