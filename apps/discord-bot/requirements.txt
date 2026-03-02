@@ -1,7 +1,7 @@
 # Discord Bot Core
 discord.py==2.5.2
 asyncpg==0.30.0
-python-dotenv==1.1.0
+python-dotenv==1.2.2
 
 # AI
 openai==1.68.2
