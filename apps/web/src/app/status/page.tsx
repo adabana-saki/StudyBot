@@ -124,7 +124,7 @@ export default function StatusPage() {
   };
 
   if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorBanner message={error} />;
+  if (error) return <ErrorBanner message={error} onDismiss={() => setError("")} />;
   if (!status) return null;
 
   const checkedAt = new Date(status.checked_at);
