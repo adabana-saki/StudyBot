@@ -105,7 +105,7 @@ app.add_middleware(RateLimitMiddleware, rate_limit=60, window=60)
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.WEB_BASE_URL, "http://localhost:3000"],
+    allow_origins=[settings.WEB_BASE_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
