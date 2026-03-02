@@ -659,10 +659,13 @@ async def test_calculate_focus_score_no_data(gamification_manager):
         {"total": 0, "completed": 0},  # focus
         {"completed": 0, "total": 0},  # lock
         {"study_days": 0},  # consistency
+        {"breach_count": 0},  # app breach
     ]
+    conn.fetchval.return_value = 0  # monitored_sessions
 
     result = await manager.calculate_focus_score(123)
-    assert result["score"] == 0
+    # app_discipline=1.0 → *15=15 (他は全て0)
+    assert result["score"] == 15
     assert result["grade"] == "D"
     assert result["components"]["completion_rate"] == 0
     assert result["components"]["lock_success"] == 0
@@ -678,15 +681,18 @@ async def test_calculate_focus_score_full_data(gamification_manager):
         {"total": 5, "completed": 4},  # focus: 80% → combined 12/15 = 80%
         {"completed": 7, "total": 10},  # lock: 70%
         {"study_days": 10},  # consistency: 10/14 = ~71%
+        {"breach_count": 0},  # app breach
     ]
+    conn.fetchval.return_value = 0  # monitored_sessions
 
     result = await manager.calculate_focus_score(123)
-    # completion_rate = 12/15 = 0.8 → *35 = 28
-    # lock_success = 7/10 = 0.7 → *25 = 17.5
-    # consistency = 10/14 ≈ 0.714 → *25 = 17.86
+    # completion_rate = 12/15 = 0.8 → *30 = 24
+    # lock_success = 7/10 = 0.7 → *20 = 14
+    # consistency = 10/14 ≈ 0.714 → *20 = 14.28
     # session_quality = 0.8 → *15 = 12
-    # total ≈ 75
-    assert result["score"] == 75
+    # app_discipline = 1.0 → *15 = 15
+    # total ≈ 79
+    assert result["score"] == 79
     assert result["grade"] == "A"
 
 
@@ -701,10 +707,12 @@ async def test_focus_score_grade(gamification_manager):
         {"total": 0, "completed": 0},  # focus
         {"completed": 10, "total": 10},  # lock: 100%
         {"study_days": 14},  # consistency: 100%
+        {"breach_count": 0},  # app breach
     ]
+    conn.fetchval.return_value = 0  # monitored_sessions
 
     result = await manager.calculate_focus_score(123)
-    # completion = 1.0 → 35, lock = 1.0 → 25, consistency = 1.0 → 25, quality = 1.0 → 15
+    # completion=1.0→30, lock=1.0→20, consistency=1.0→20, quality=1.0→15, app=1.0→15
     assert result["score"] == 100
     assert result["grade"] == "S"
 
