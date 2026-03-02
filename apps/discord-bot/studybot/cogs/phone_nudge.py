@@ -648,7 +648,11 @@ class PhoneNudgeCog(commands.Cog):
         """デフォルトロック設定を表示/変更"""
         settings = await self.manager.lock_settings_repo.get_settings(interaction.user.id)
 
-        if all(v is None for v in [unlock_level, duration, coin_bet, challenge_mode, challenge_difficulty]):
+        all_none = all(
+            v is None
+            for v in [unlock_level, duration, coin_bet, challenge_mode, challenge_difficulty]
+        )
+        if all_none:
             # 設定表示
             if not settings:
                 desc = "デフォルト設定は未登録です。\n引数を指定して設定してください。"
@@ -686,8 +690,14 @@ class PhoneNudgeCog(commands.Cog):
         new_level = unlock_level if unlock_level is not None else current["default_unlock_level"]
         new_duration = duration if duration is not None else current["default_duration"]
         new_bet = coin_bet if coin_bet is not None else current["default_coin_bet"]
-        new_ch_mode = challenge_mode if challenge_mode is not None else current.get("challenge_mode", "none")
-        new_ch_diff = challenge_difficulty if challenge_difficulty is not None else current.get("challenge_difficulty", 1)
+        new_ch_mode = (
+            challenge_mode if challenge_mode is not None
+            else current.get("challenge_mode", "none")
+        )
+        new_ch_diff = (
+            challenge_difficulty if challenge_difficulty is not None
+            else current.get("challenge_difficulty", 1)
+        )
 
         if new_level < 1 or new_level > 5:
             await interaction.response.send_message(

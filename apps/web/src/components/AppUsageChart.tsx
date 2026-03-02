@@ -72,7 +72,6 @@ export default function AppUsageChart({ data }: AppUsageChartProps) {
                   width={80}
                 />
                 <Tooltip
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   formatter={(_value: any, _name: any, props: any) => [
                     formatDuration(props?.payload?.totalMs ?? 0),
                     "使用時間",

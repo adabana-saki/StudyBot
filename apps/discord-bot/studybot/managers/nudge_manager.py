@@ -418,7 +418,7 @@ class NudgeManager:
         if len(answers) != len(problems):
             return {"correct": False, "score": 0, "total": len(problems)}
         correct_count = sum(
-            1 for p, a in zip(problems, answers) if p["answer"] == a
+            1 for p, a in zip(problems, answers, strict=True) if p["answer"] == a
         )
         return {
             "correct": correct_count == len(problems),
@@ -430,7 +430,7 @@ class NudgeManager:
         """タイピングチャレンジの回答を検証（完全一致判定+精度）"""
         if len(typed) != len(originals):
             return {"correct": False, "accuracy": 0.0, "total": len(originals)}
-        matches = sum(1 for o, t in zip(originals, typed) if o == t)
+        matches = sum(1 for o, t in zip(originals, typed, strict=True) if o == t)
         accuracy = matches / len(originals) if originals else 0.0
         return {
             "correct": matches == len(originals),

@@ -292,7 +292,6 @@ export default function FocusPage() {
             // ハードブロックが有効な場合
             {
               const lockSettings = await getLockSettings();
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               if (lockSettings && (lockSettings as any).native_block_mode === "hard") {
                 await enableHardBlock(
                   result.session_id,
