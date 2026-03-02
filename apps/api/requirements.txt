@@ -16,7 +16,7 @@ pydantic==2.10.6
 redis[hiredis]==5.2.1
 
 # SSE
-sse-starlette==2.2.1
+sse-starlette==3.3.2
 
 # Firebase
 firebase-admin==6.6.0
