@@ -1,5 +1,5 @@
 # Discord Bot Core
-discord.py==2.5.2
+discord.py==2.7.1
 asyncpg==0.30.0
 python-dotenv==1.1.0
 
